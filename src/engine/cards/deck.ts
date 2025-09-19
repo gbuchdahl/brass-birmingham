@@ -1,4 +1,4 @@
-import type { Card, CardId, DeckState } from "../types";
+import type { Card, CardId, DeckState } from "./types";
 import { shuffleInPlace } from "../util/rng";
 
 // Very small deck: 2 location cards + 2 industry + 2 wilds (placeholder)
@@ -20,7 +20,9 @@ function baseCards(): Card[] {
 export function buildDeck(seed: string): DeckState {
   const cards = baseCards();
   const byId: Record<CardId, Card> = {};
-  for (const card of cards) byId[card.id] = card;
+  for (const card of cards) {
+    byId[card.id] = card;
+  }
 
   const draw = cards.map((c) => c.id);
   shuffleInPlace(draw, seed); // deterministic
@@ -35,4 +37,18 @@ export function drawCards(
   const ids = deck.draw.slice(0, n);
   const rest = deck.draw.slice(n);
   return { ids, deck: { ...deck, draw: rest } };
+}
+
+export function discardCards(deck: DeckState, ids: CardId[]): DeckState {
+  return {
+    ...deck,
+    discard: [...deck.discard, ...ids],
+  };
+}
+
+export function removeCards(deck: DeckState, ids: CardId[]): DeckState {
+  return {
+    ...deck,
+    removed: [...deck.removed, ...ids],
+  };
 }

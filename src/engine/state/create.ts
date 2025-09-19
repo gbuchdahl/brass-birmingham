@@ -1,7 +1,7 @@
-import type { DeckState, GameState, PlayerId, PlayerState } from "../types";
+import type { GameState, PlayerId, PlayerState } from "../types";
+import type { DeckState } from "../cards";
 import { HAND_SIZE_BY_PLAYER_COUNT } from "../rules/config";
-import { buildDeck } from "../cards/deck";
-import { dealToPlayers } from "../cards/hand";
+import { buildDeck, dealToPlayers } from "../cards";
 
 function uid(): string {
   return Math.random().toString(36).slice(2);

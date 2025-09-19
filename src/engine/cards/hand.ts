@@ -1,4 +1,5 @@
-import type { DeckState, PlayerId } from "../types";
+import type { DeckState } from "./types";
+import type { PlayerId } from "../types";
 import { drawCards } from "./deck";
 
 export function dealToPlayers(
@@ -14,4 +15,27 @@ export function dealToPlayers(
     d = nd;
   }
   return { deck: d, hands };
+}
+
+export function addToHand(
+  hands: Record<PlayerId, string[]>,
+  player: PlayerId,
+  cardIds: string[],
+): Record<PlayerId, string[]> {
+  return {
+    ...hands,
+    [player]: [...(hands[player] ?? []), ...cardIds],
+  };
+}
+
+export function removeFromHand(
+  hands: Record<PlayerId, string[]>,
+  player: PlayerId,
+  cardIds: string[],
+): Record<PlayerId, string[]> {
+  const removeSet = new Set(cardIds);
+  return {
+    ...hands,
+    [player]: (hands[player] ?? []).filter((id) => !removeSet.has(id)),
+  };
 }
