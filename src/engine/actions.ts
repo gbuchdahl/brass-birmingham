@@ -1,6 +1,6 @@
-export type ActionType = string;
+import type { PlayerId } from "./types";
 
-export type Action = {
-  type: ActionType;
-  [key: string]: unknown;
-};
+// We'll add more actions later; for M1 we only need END_TURN.
+export type EndTurn = { type: "END_TURN"; player: PlayerId };
+
+export type Action = EndTurn;

@@ -1,8 +1,8 @@
 import type { Action } from "./actions";
-import type { GameState } from "./state";
+import type { GameState, PlayerId } from "./types";
 
 export type LegalMove = Action;
 
-export function getLegalMoves(_state: GameState, _player: string): LegalMove[] {
+export function getLegalMoves(_state: GameState, _player: PlayerId): LegalMove[] {
   return [];
 }
