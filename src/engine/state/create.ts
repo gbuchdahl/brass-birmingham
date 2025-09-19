@@ -19,7 +19,7 @@ export function createGame(
 
   const deck: DeckState = buildDeck(resolvedSeed);
   const handSize = HAND_SIZE_BY_PLAYER_COUNT[seats.length] ?? 8;
-  const { hands } = dealToPlayers(deck, seats, handSize);
+  const { hands, deck: deckAfterDeal } = dealToPlayers(deck, seats, handSize);
 
   const players: Record<PlayerId, PlayerState> = {};
   for (const id of seats) {
@@ -33,7 +33,7 @@ export function createGame(
   }
 
   return {
-    id: uid(),
+    id: `game-${resolvedSeed}`,
     seed: resolvedSeed,
     phase: "Canal",
     round: 1,
@@ -48,5 +48,6 @@ export function createGame(
         data: { seats, seed: resolvedSeed, handSize },
       },
     ],
+    deck: deckAfterDeal,
   };
 }

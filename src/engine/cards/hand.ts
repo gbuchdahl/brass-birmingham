@@ -1,4 +1,4 @@
-import type { DeckState } from "./types";
+import type { CardId, DeckState } from "./types";
 import type { PlayerId } from "../types";
 import { drawCards } from "./deck";
 
@@ -6,8 +6,8 @@ export function dealToPlayers(
   deck: DeckState,
   seats: PlayerId[],
   handSize: number,
-): { deck: DeckState; hands: Record<PlayerId, string[]> } {
-  const hands: Record<PlayerId, string[]> = {};
+): { deck: DeckState; hands: Record<PlayerId, CardId[]> } {
+  const hands: Record<PlayerId, CardId[]> = {};
   let d = deck;
   for (const p of seats) {
     const { ids, deck: nd } = drawCards(d, handSize);
@@ -18,10 +18,10 @@ export function dealToPlayers(
 }
 
 export function addToHand(
-  hands: Record<PlayerId, string[]>,
+  hands: Record<PlayerId, CardId[]>,
   player: PlayerId,
-  cardIds: string[],
-): Record<PlayerId, string[]> {
+  cardIds: CardId[],
+): Record<PlayerId, CardId[]> {
   return {
     ...hands,
     [player]: [...(hands[player] ?? []), ...cardIds],
@@ -29,10 +29,10 @@ export function addToHand(
 }
 
 export function removeFromHand(
-  hands: Record<PlayerId, string[]>,
+  hands: Record<PlayerId, CardId[]>,
   player: PlayerId,
-  cardIds: string[],
-): Record<PlayerId, string[]> {
+  cardIds: CardId[],
+): Record<PlayerId, CardId[]> {
   const removeSet = new Set(cardIds);
   return {
     ...hands,

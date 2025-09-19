@@ -1,19 +1,25 @@
 import type { Card, CardId, DeckState } from "./types";
 import { shuffleInPlace } from "../util/rng";
 
-// Very small deck: 2 location cards + 2 industry + 2 wilds (placeholder)
+const templateCards: Array<Omit<Card, "id">> = [
+  { kind: "Location", payload: { city: "Birmingham" } },
+  { kind: "Location", payload: { city: "Coventry" } },
+  { kind: "Industry", payload: { industry: "Coal" } },
+  { kind: "Industry", payload: { industry: "Iron" } },
+  { kind: "Wild" },
+  { kind: "Wild" },
+];
+
+const TEMPLATE_REPETITIONS = 6; // 6 * 6 = 36 cards, enough for 4 players * 8 cards
+
 function baseCards(): Card[] {
   const cards: Card[] = [];
   let c = 0;
-  const mk = (card: Omit<Card, "id">): Card => ({ id: `c${c++}`, ...card });
-
-  cards.push(mk({ kind: "Location", payload: { city: "Birmingham" } }));
-  cards.push(mk({ kind: "Location", payload: { city: "Coventry" } }));
-  cards.push(mk({ kind: "Industry", payload: { industry: "Coal" } }));
-  cards.push(mk({ kind: "Industry", payload: { industry: "Iron" } }));
-  cards.push(mk({ kind: "Wild" }));
-  cards.push(mk({ kind: "Wild" }));
-
+  for (let rep = 0; rep < TEMPLATE_REPETITIONS; rep += 1) {
+    for (const card of templateCards) {
+      cards.push({ id: `c${c++}`, ...card });
+    }
+  }
   return cards;
 }
 

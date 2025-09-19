@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { createGame, reduce } from "@/engine";
 
 describe("reduce", () => {
+  it("deals the correct number of cards to each player", () => {
+    const seats = ["A", "B", "C", "D"] as const;
+    const state = createGame([...seats], "test-seed");
+
+    const expectedHandSize = 8;
+    for (const seat of seats) {
+      expect(state.players[seat].hand).toHaveLength(expectedHandSize);
+    }
+  });
+
   it("cycles to the next player on END_TURN", () => {
     const state = createGame(["A", "B", "C"]);
 

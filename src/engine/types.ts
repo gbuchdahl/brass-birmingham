@@ -1,3 +1,5 @@
+import type { CardId, DeckState } from "./cards/types";
+
 // Minimal types just for M1 (we'll expand later)
 
 export type PlayerId = string;
@@ -14,7 +16,7 @@ export type PlayerState = {
   id: PlayerId;
   money: number;
   income: number;
-  hand: string[]; // placeholder
+  hand: CardId[];
   vp: number;
 };
 
@@ -28,4 +30,5 @@ export type GameState = {
   currentPlayer: PlayerId; // whose turn it is
   players: Record<PlayerId, PlayerState>;
   log: GameEvent[];
+  deck: DeckState;
 };
