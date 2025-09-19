@@ -1,8 +1,2 @@
-export type PlayerId = string;
-
-export type GameState = Record<string, never>;
-
-export type Action = {
-  type: string;
-  [key: string]: unknown;
-};
+export type { GameState } from "./state";
+export type { Action, ActionType } from "./actions";

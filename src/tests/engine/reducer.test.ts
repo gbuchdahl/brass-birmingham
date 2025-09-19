@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { reduce } from "@/engine";
+import { createInitialState, reduce } from "@/engine";
 
 describe("reduce", () => {
-  it("returns a state when starting the game", () => {
-    const state = reduce(null, { type: "START_GAME" });
+  it("returns the existing state when given a placeholder action", () => {
+    const initial = createInitialState();
 
-    expect(state).not.toBeNull();
+    const next = reduce(initial, { type: "NOOP" });
+
+    expect(next).toBe(initial);
   });
 });
