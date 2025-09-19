@@ -29,3 +29,23 @@ export type GameState = {
   players: Record<PlayerId, PlayerState>;
   log: GameEvent[];
 };
+
+// --- Cards (minimal model) ---
+
+export type CardId = string;
+
+export type CardKind = "Location" | "Industry" | "Wild";
+
+export type Card = {
+  id: CardId;
+  kind: CardKind;
+  // For Location cards, tie to a CityId; for Industry cards, store a string for now.
+  payload?: { city?: string; industry?: string };
+};
+
+export type DeckState = {
+  draw: CardId[];
+  discard: CardId[];
+  removed: CardId[];
+  byId: Record<CardId, Card>;
+};

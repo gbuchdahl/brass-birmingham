@@ -1,0 +1,38 @@
+import type { Card, CardId, DeckState } from "../types";
+import { shuffleInPlace } from "../util/rng";
+
+// Very small deck: 2 location cards + 2 industry + 2 wilds (placeholder)
+function baseCards(): Card[] {
+  const cards: Card[] = [];
+  let c = 0;
+  const mk = (card: Omit<Card, "id">): Card => ({ id: `c${c++}`, ...card });
+
+  cards.push(mk({ kind: "Location", payload: { city: "Birmingham" } }));
+  cards.push(mk({ kind: "Location", payload: { city: "Coventry" } }));
+  cards.push(mk({ kind: "Industry", payload: { industry: "Coal" } }));
+  cards.push(mk({ kind: "Industry", payload: { industry: "Iron" } }));
+  cards.push(mk({ kind: "Wild" }));
+  cards.push(mk({ kind: "Wild" }));
+
+  return cards;
+}
+
+export function buildDeck(seed: string): DeckState {
+  const cards = baseCards();
+  const byId: Record<CardId, Card> = {};
+  for (const card of cards) byId[card.id] = card;
+
+  const draw = cards.map((c) => c.id);
+  shuffleInPlace(draw, seed); // deterministic
+
+  return { draw, discard: [], removed: [], byId };
+}
+
+export function drawCards(
+  deck: DeckState,
+  n: number,
+): { ids: CardId[]; deck: DeckState } {
+  const ids = deck.draw.slice(0, n);
+  const rest = deck.draw.slice(n);
+  return { ids, deck: { ...deck, draw: rest } };
+}
