@@ -2,6 +2,7 @@ import type { GameState, PlayerId, PlayerState } from "../types";
 import type { DeckState } from "../cards";
 import { HAND_SIZE_BY_PLAYER_COUNT } from "../rules/config";
 import { buildDeck, dealToPlayers } from "../cards";
+import { TOPOLOGY } from "../board/topology";
 
 function uid(): string {
   return Math.random().toString(36).slice(2);
@@ -32,6 +33,8 @@ export function createGame(
     };
   }
 
+  const linkStates = TOPOLOGY.edges.map(() => ({}));
+
   return {
     id: `game-${resolvedSeed}`,
     seed: resolvedSeed,
@@ -49,5 +52,9 @@ export function createGame(
       },
     ],
     deck: deckAfterDeal,
+    board: {
+      topology: TOPOLOGY,
+      linkStates,
+    },
   };
 }

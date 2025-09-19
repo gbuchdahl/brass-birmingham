@@ -1,10 +1,9 @@
-import type { CardId, DeckState } from "./cards/types";
-
-// Minimal types just for M1 (we'll expand later)
+import type { CardId, DeckState } from "./cards";
+import type { Topology, CityId, EraKind } from "./board/topology";
 
 export type PlayerId = string;
 
-export type Phase = "Canal"; // we'll add Setup/Rail/End later
+export type Phase = "Canal";
 
 export type GameEvent = {
   idx: number;
@@ -20,15 +19,25 @@ export type PlayerState = {
   vp: number;
 };
 
+export type LinkState = {
+  builtBy?: PlayerId;
+};
+
+export type BoardState = {
+  topology: Topology;
+  linkStates: LinkState[];
+};
+
 export type GameState = {
   id: string;
   seed: string;
   phase: Phase;
   round: number;
-  turn: number; // absolute turn count
-  seatOrder: PlayerId[]; // fixed order for now (M1)
-  currentPlayer: PlayerId; // whose turn it is
+  turn: number;
+  seatOrder: PlayerId[];
+  currentPlayer: PlayerId;
   players: Record<PlayerId, PlayerState>;
   log: GameEvent[];
   deck: DeckState;
+  board: BoardState;
 };
