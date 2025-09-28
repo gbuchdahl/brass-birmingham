@@ -1,3 +1,5 @@
+A repository for building an online version of Brass Birmingham. 
+
 # Project Directory Reference
 
 ## Top-Level Layout

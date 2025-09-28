@@ -19,14 +19,18 @@ describe("board links", () => {
 
     if (!bothEdge || !canalEdge || !railEdge) return;
 
-    expect(isLegalLink(state, bothEdge.a, bothEdge.b, "canal")).toBe(true);
-    expect(isLegalLink(state, bothEdge.a, bothEdge.b, "rail")).toBe(true);
+    const [bothA, bothB] = bothEdge.nodes;
+    const [canalA, canalB] = canalEdge.nodes;
+    const [railA, railB] = railEdge.nodes;
 
-    expect(isLegalLink(state, canalEdge.a, canalEdge.b, "canal")).toBe(true);
-    expect(isLegalLink(state, canalEdge.a, canalEdge.b, "rail")).toBe(false);
+    expect(isLegalLink(state, bothA, bothB, "canal")).toBe(true);
+    expect(isLegalLink(state, bothA, bothB, "rail")).toBe(true);
 
-    expect(isLegalLink(state, railEdge.a, railEdge.b, "rail")).toBe(true);
-    expect(isLegalLink(state, railEdge.a, railEdge.b, "canal")).toBe(false);
+    expect(isLegalLink(state, canalA, canalB, "canal")).toBe(true);
+    expect(isLegalLink(state, canalA, canalB, "rail")).toBe(false);
+
+    expect(isLegalLink(state, railA, railB, "rail")).toBe(true);
+    expect(isLegalLink(state, railA, railB, "canal")).toBe(false);
   });
 
   it("records the builder and prevents rebuilding", () => {
@@ -35,14 +39,20 @@ describe("board links", () => {
     expect(target).toBeDefined();
     if (!target) return;
 
-    const built = buildLink(state, seats[0], target.a, target.b, "canal");
-    const idx = built.board.topology.edges.findIndex(
-      (edge) => edge.kind === "canal" && edge.a === target.a && edge.b === target.b,
-    );
+    const [a, b] = target.nodes;
+    const built = buildLink(state, seats[0], a, b, "canal");
+    const idx = built.board.topology.edges.findIndex((edge) => {
+      if (edge.kind !== "canal") return false;
+      const [edgeA, edgeB] = edge.nodes;
+      return (
+        (edgeA === a && edgeB === b) ||
+        (edgeA === b && edgeB === a)
+      );
+    });
     expect(idx).toBeGreaterThanOrEqual(0);
     expect(built.board.linkStates[idx].builtBy).toBe(seats[0]);
-    expect(isLegalLink(built, target.a, target.b, "canal")).toBe(false);
-    expect(() => buildLink(built, seats[1], target.a, target.b, "canal")).toThrow();
+    expect(isLegalLink(built, a, b, "canal")).toBe(false);
+    expect(() => buildLink(built, seats[1], a, b, "canal")).toThrow();
   });
 
   it("rejects attempting to build in the wrong era", () => {
@@ -53,11 +63,14 @@ describe("board links", () => {
     expect(railEdge).toBeDefined();
     if (!canalEdge || !railEdge) return;
 
-    expect(isLegalLink(state, canalEdge.a, canalEdge.b, "rail")).toBe(false);
-    expect(() => buildLink(state, seats[0], canalEdge.a, canalEdge.b, "rail")).toThrow();
+    const [canalA, canalB] = canalEdge.nodes;
+    const [railA, railB] = railEdge.nodes;
 
-    const builtRail = buildLink(state, seats[0], railEdge.a, railEdge.b, "rail");
-    expect(isLegalLink(builtRail, railEdge.a, railEdge.b, "rail")).toBe(false);
+    expect(isLegalLink(state, canalA, canalB, "rail")).toBe(false);
+    expect(() => buildLink(state, seats[0], canalA, canalB, "rail")).toThrow();
+
+    const builtRail = buildLink(state, seats[0], railA, railB, "rail");
+    expect(isLegalLink(builtRail, railA, railB, "rail")).toBe(false);
   });
 
   it("updates connectivity when links are built", () => {
@@ -66,11 +79,12 @@ describe("board links", () => {
     expect(edge).toBeDefined();
     if (!edge) return;
 
+    const [a, b] = edge.nodes;
     const era = edge.kind === "both" ? "canal" : edge.kind;
-    expect(areConnected(state, edge.a, edge.b)).toBe(false);
+    expect(areConnected(state, a, b)).toBe(false);
 
-    const withLink = buildLink(state, seats[0], edge.a, edge.b, era);
-    expect(areConnected(withLink, edge.a, edge.b)).toBe(true);
+    const withLink = buildLink(state, seats[0], a, b, era);
+    expect(areConnected(withLink, a, b)).toBe(true);
   });
 
   it("connects cities through multi-hop paths", () => {
@@ -82,12 +96,36 @@ describe("board links", () => {
     expect(canalEdge).toBeDefined();
     if (!bothEdge || !canalEdge) return;
 
-    const withFirst = buildLink(state, seats[0], bothEdge.a, bothEdge.b, "canal");
-    expect(areConnected(withFirst, bothEdge.b, canalEdge.b)).toBe(false);
+    const [bothA, bothB] = bothEdge.nodes;
+    const [canalA, canalB] = canalEdge.nodes;
 
-    const withSecond = buildLink(withFirst, seats[0], canalEdge.a, canalEdge.b, "canal");
-    const start = bothEdge.b;
-    const end = canalEdge.b === start ? canalEdge.a : canalEdge.b;
+    const withFirst = buildLink(state, seats[0], bothA, bothB, "canal");
+    expect(areConnected(withFirst, bothB, canalB)).toBe(false);
+
+    const withSecond = buildLink(withFirst, seats[0], canalA, canalB, "canal");
+    const start = bothB;
+    const end = canalB === start ? canalA : canalB;
     expect(areConnected(withSecond, start, end)).toBe(true);
+  });
+
+  it("connects cities to ports once links are built", () => {
+    const state = createGame([...seats], "port-hop");
+    const portEdge = state.board.topology.edges.find((edge) => {
+      const [first, second] = edge.nodes;
+      return first === "Gloucester" || second === "Gloucester";
+    });
+
+    expect(portEdge).toBeDefined();
+    if (!portEdge) return;
+
+    const [nodeA, nodeB] = portEdge.nodes;
+    const city = nodeA === "Gloucester" ? nodeB : nodeA;
+    const port = nodeA === "Gloucester" ? nodeA : nodeB;
+
+    expect(isLegalLink(state, city, port, "canal")).toBe(true);
+    expect(areConnected(state, city, port)).toBe(false);
+
+    const withPort = buildLink(state, seats[0], city, port, "canal");
+    expect(areConnected(withPort, city, port)).toBe(true);
   });
 });

@@ -1,32 +1,33 @@
 import type { GameState, PlayerId } from "../types";
-import type { CityId, EraKind, Edge } from "./topology";
+import type { EraKind, Edge, NodeId } from "./topology";
 
 function edgeAllowsEra(edge: Edge, era: EraKind) {
   return edge.kind === era || edge.kind === "both";
 }
 
-function isMatchingEdge(edge: Edge, a: CityId, b: CityId) {
+function edgeMatches(edge: Edge, a: NodeId, b: NodeId) {
+  const [first, second] = edge.nodes;
   return (
-    (edge.a === a && edge.b === b) ||
-    (edge.a === b && edge.b === a)
+    (first === a && second === b) ||
+    (first === b && second === a)
   );
 }
 
 function findEdgeIndex(
   state: GameState,
-  a: CityId,
-  b: CityId,
+  a: NodeId,
+  b: NodeId,
   era: EraKind,
 ): number {
   return state.board.topology.edges.findIndex(
-    (edge) => edgeAllowsEra(edge, era) && isMatchingEdge(edge, a, b),
+    (edge) => edgeAllowsEra(edge, era) && edgeMatches(edge, a, b),
   );
 }
 
 export function isLegalLink(
   state: GameState,
-  a: CityId,
-  b: CityId,
+  a: NodeId,
+  b: NodeId,
   era: EraKind,
 ): boolean {
   const idx = findEdgeIndex(state, a, b, era);
@@ -37,8 +38,8 @@ export function isLegalLink(
 export function buildLink(
   state: GameState,
   player: PlayerId,
-  a: CityId,
-  b: CityId,
+  a: NodeId,
+  b: NodeId,
   era: EraKind,
 ): GameState {
   const idx = findEdgeIndex(state, a, b, era);
@@ -59,18 +60,19 @@ export function buildLink(
   };
 }
 
-export function areConnected(state: GameState, from: CityId, to: CityId): boolean {
+export function areConnected(state: GameState, from: NodeId, to: NodeId): boolean {
   if (from === to) return true;
-  const visited = new Set<CityId>();
-  const queue: CityId[] = [from];
+  const visited = new Set<NodeId>();
+  const queue: NodeId[] = [from];
   while (queue.length > 0) {
-    const city = queue.shift()!;
-    if (visited.has(city)) continue;
-    visited.add(city);
+    const node = queue.shift()!;
+    if (visited.has(node)) continue;
+    visited.add(node);
     for (const [idx, edge] of state.board.topology.edges.entries()) {
       if (!state.board.linkStates[idx].builtBy) continue;
 
-      const neighbor = edge.a === city ? edge.b : edge.b === city ? edge.a : null;
+      const [first, second] = edge.nodes;
+      const neighbor = first === node ? second : second === node ? first : null;
       if (!neighbor) continue;
       if (neighbor === to) return true;
       queue.push(neighbor);

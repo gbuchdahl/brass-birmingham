@@ -2,37 +2,51 @@ export type EraKind = "canal" | "rail";
 
 export type EdgeKind = EraKind | "both";
 
-const EDGE_DEFS = [
-  { a: "Birmingham", b: "Coventry", kind: "both" },
-  { a: "Birmingham", b: "Wolverhampton", kind: "canal" },
-  { a: "Coventry", b: "Wolverhampton", kind: "rail" },
-] as const;
+export const CITY_DEFS = {
+  Birmingham: {
+    industries: ["Coal", "Iron", "Manufactured"] as const,
+  },
+  Coventry: {
+    industries: ["Cotton"] as const,
+  },
+  Wolverhampton: {
+    industries: ["Coal"] as const,
+  },
+} as const;
 
-export type CityId =
-  | typeof EDGE_DEFS[number]["a"]
-  | typeof EDGE_DEFS[number]["b"];
+export type CityId = keyof typeof CITY_DEFS;
+
+export const PORT_IDS = ["Gloucester"] as const;
+
+export type PortId = typeof PORT_IDS[number];
+
+export type NodeId = CityId | PortId;
+
+type EdgeDefinition = {
+  nodes: readonly [NodeId, NodeId];
+  kind: EdgeKind;
+};
+
+export const EDGE_DEFS = [
+  { nodes: ["Birmingham", "Coventry"] as const, kind: "both" },
+  { nodes: ["Birmingham", "Wolverhampton"] as const, kind: "canal" },
+  { nodes: ["Coventry", "Wolverhampton"] as const, kind: "rail" },
+  { nodes: ["Coventry", "Gloucester"] as const, kind: "canal" },
+] as const satisfies readonly EdgeDefinition[];
 
 export interface Edge {
-  a: CityId;
-  b: CityId;
+  nodes: readonly [NodeId, NodeId];
   kind: EdgeKind;
 }
 
 export interface Topology {
   cities: CityId[];
+  ports: PortId[];
   edges: Edge[];
 }
 
-const citiesFromEdges = (edges: readonly typeof EDGE_DEFS[number][]): CityId[] => {
-  const set = new Set<string>();
-  for (const edge of edges) {
-    set.add(edge.a);
-    set.add(edge.b);
-  }
-  return Array.from(set) as CityId[];
-};
-
 export const TOPOLOGY: Topology = {
-  cities: citiesFromEdges(EDGE_DEFS),
-  edges: EDGE_DEFS.map((edge) => ({ ...edge })) as Edge[],
+  cities: Object.keys(CITY_DEFS) as CityId[],
+  ports: [...PORT_IDS],
+  edges: EDGE_DEFS.map((edge) => ({ ...edge })),
 };
