@@ -205,6 +205,30 @@ describe("reduce", () => {
     });
   });
 
+  it("accepts BUILD_LINK when from/to are reversed", () => {
+    const state = createGame(["A", "B"], "reverse-order");
+    const target = findEdgeOrThrow(
+      state,
+      (edge) => edge.kind === "both" || edge.kind === "canal",
+      "canal/both",
+    );
+    const [from, to] = target.nodes;
+
+    const next = reduce(state, {
+      type: "BUILD_LINK",
+      player: "A",
+      from: to,
+      to: from,
+    });
+
+    expect(next).not.toBe(state);
+    const lastEvent = next.log[next.log.length - 1];
+    expect(lastEvent).toMatchObject({
+      type: "BUILD_LINK",
+      data: { player: "A", from: to, to: from, era: "canal" },
+    });
+  });
+
   it("ignores BUILD_LINK when the edge does not exist", () => {
     const state = createGame(["A", "B"], "missing-edge");
     const result = reduce(state, {
