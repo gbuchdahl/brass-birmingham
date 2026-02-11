@@ -37,8 +37,12 @@ describe("getLegalMoves", () => {
       throw new Error("Expected BUILD_LINK move for active player");
     }
 
-    const next = reduce(state, first);
-    const nextMoves = getLegalMoves(next, "A");
+    const result = reduce(state, first);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(`Expected BUILD_LINK to be valid, got ${result.error.code}`);
+    }
+    const nextMoves = getLegalMoves(result.state, "A");
 
     expect(nextMoves.length).toBe(initialMoves.length - 1);
     expect(

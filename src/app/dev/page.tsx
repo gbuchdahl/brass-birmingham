@@ -30,7 +30,7 @@ export default function DevPage() {
       <button
         className="rounded-lg border border-gray-300 px-3 py-2 font-medium transition hover:border-gray-400 hover:bg-gray-50 dark:border-gray-700 dark:hover:border-gray-600 dark:hover:bg-neutral-900"
         onClick={() =>
-          setState((s) => reduce(s, { type: "END_TURN", player: s.currentPlayer }))
+          setState((s) => reduce(s, { type: "END_TURN", player: s.currentPlayer }).state)
         }
       >
         End Turn (player {state.currentPlayer})
