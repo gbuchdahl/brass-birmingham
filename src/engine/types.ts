@@ -1,9 +1,12 @@
 import type { CardId, DeckState } from "./cards";
-import type { Topology } from "./board/topology";
+import type { CityId, Topology } from "./board/topology";
 
 export type PlayerId = string;
 
 export type EraKind = "canal" | "rail";
+export type ResourceKind = "coal" | "iron";
+export type IndustryKind = ResourceKind;
+export type TileInvariantError = "INVALID_TILE_FLIP_STATE";
 
 export type GameEvent = {
   idx: number;
@@ -26,6 +29,28 @@ export type LinkState = {
 export type BoardState = {
   topology: Topology;
   linkStates: LinkState[];
+  tiles: Record<string, TileState>;
+};
+
+export type TileState = {
+  id: string;
+  city: CityId;
+  industry: IndustryKind;
+  owner?: PlayerId;
+  level: number;
+  resourcesRemaining: number;
+  incomeOnFlip: number;
+  flipped: boolean;
+};
+
+export type MarketTrackState = {
+  units: number;
+  fallbackPrice: number;
+};
+
+export type MarketState = {
+  coal: MarketTrackState;
+  iron: MarketTrackState;
 };
 
 export type GameState = {
@@ -39,5 +64,6 @@ export type GameState = {
   players: Record<PlayerId, PlayerState>;
   log: GameEvent[];
   deck: DeckState;
+  market: MarketState;
   board: BoardState;
 };

@@ -1,6 +1,13 @@
 import type { GameState, PlayerId, PlayerState } from "../types";
 import type { DeckState } from "../cards";
-import { HAND_SIZE_BY_PLAYER_COUNT } from "../rules/config";
+import {
+  COAL_MARKET_FALLBACK_PRICE,
+  HAND_SIZE_BY_PLAYER_COUNT,
+  INITIAL_COAL_MARKET_UNITS,
+  INITIAL_IRON_MARKET_UNITS,
+  IRON_MARKET_FALLBACK_PRICE,
+  STARTING_MONEY,
+} from "../rules/config";
 import { buildDeck, dealToPlayers } from "../cards";
 import { TOPOLOGY } from "../board/topology";
 
@@ -26,7 +33,7 @@ export function createGame(
   for (const id of seats) {
     players[id] = {
       id,
-      money: 0,
+      money: STARTING_MONEY,
       income: 0,
       hand: hands[id] ?? [],
       vp: 0,
@@ -34,6 +41,16 @@ export function createGame(
   }
 
   const linkStates = TOPOLOGY.edges.map(() => ({}));
+  const market = {
+    coal: {
+      units: INITIAL_COAL_MARKET_UNITS,
+      fallbackPrice: COAL_MARKET_FALLBACK_PRICE,
+    },
+    iron: {
+      units: INITIAL_IRON_MARKET_UNITS,
+      fallbackPrice: IRON_MARKET_FALLBACK_PRICE,
+    },
+  };
 
   return {
     id: `game-${resolvedSeed}`,
@@ -52,9 +69,11 @@ export function createGame(
       },
     ],
     deck: deckAfterDeal,
+    market,
     board: {
       topology: TOPOLOGY,
       linkStates,
+      tiles: {},
     },
   };
 }
