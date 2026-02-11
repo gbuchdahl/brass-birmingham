@@ -1,10 +1,47 @@
 import { describe, expect, it } from "vitest";
 import { createGame } from "@/engine";
 import { buildLink, isLegalLink, areConnected } from "@/engine/board/api";
+import { TOPOLOGY } from "@/engine/board/topology";
 
 const seats = ["A", "B"] as const;
 
 describe("board links", () => {
+  it("includes a broader second-pass city set", () => {
+    expect(TOPOLOGY.cities.length).toBeGreaterThanOrEqual(15);
+  });
+
+  it("ensures every city is attached to at least one edge", () => {
+    const connectedCities = new Set<string>();
+    for (const edge of TOPOLOGY.edges) {
+      const [a, b] = edge.nodes;
+      connectedCities.add(a);
+      connectedCities.add(b);
+    }
+
+    for (const city of TOPOLOGY.cities) {
+      expect(connectedCities.has(city)).toBe(true);
+    }
+  });
+
+  it("has a topology with no duplicate undirected edges", () => {
+    const seen = new Set<string>();
+    for (const edge of TOPOLOGY.edges) {
+      const [a, b] = edge.nodes;
+      const key = [a, b].sort().join("::");
+      expect(seen.has(key)).toBe(false);
+      seen.add(key);
+    }
+  });
+
+  it("ensures all edges reference known nodes", () => {
+    const nodes = new Set([...TOPOLOGY.cities, ...TOPOLOGY.ports]);
+    for (const edge of TOPOLOGY.edges) {
+      const [a, b] = edge.nodes;
+      expect(nodes.has(a)).toBe(true);
+      expect(nodes.has(b)).toBe(true);
+    }
+  });
+
   it("permits building only in eligible eras", () => {
     const state = createGame([...seats], "eligible-eras");
     const edges = state.board.topology.edges;
