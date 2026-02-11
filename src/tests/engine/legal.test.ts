@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createGame, reduce } from "@/engine";
 import { getLegalMoves } from "@/engine/legal";
+import { isLegalLink } from "@/engine/board/api";
 
 describe("getLegalMoves", () => {
   it("returns build-link actions for the active player", () => {
@@ -13,7 +14,8 @@ describe("getLegalMoves", () => {
       moves.every(
         (move) =>
           move.type === "BUILD_LINK" &&
-          move.player === "A",
+          move.player === "A" &&
+          isLegalLink(state, move.from, move.to, state.phase),
       ),
     ).toBe(true);
   });
@@ -30,18 +32,25 @@ describe("getLegalMoves", () => {
     expect(initialMoves.length).toBeGreaterThan(0);
 
     const first = initialMoves[0];
-    if (first.type !== "BUILD_LINK") return;
+    expect(first.type).toBe("BUILD_LINK");
+    if (first.type !== "BUILD_LINK") {
+      throw new Error("Expected BUILD_LINK move for active player");
+    }
 
-    const next = reduce(state, first);
-    const nextMoves = getLegalMoves(next, "A");
+    const result = reduce(state, first);
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(`Expected BUILD_LINK to be valid, got ${result.error.code}`);
+    }
+    const nextMoves = getLegalMoves(result.state, "A");
 
     expect(nextMoves.length).toBe(initialMoves.length - 1);
     expect(
       nextMoves.some(
         (move) =>
           move.type === "BUILD_LINK" &&
-          move.from === first.from &&
-          move.to === first.to,
+          ((move.from === first.from && move.to === first.to) ||
+            (move.from === first.to && move.to === first.from)),
       ),
     ).toBe(false);
   });

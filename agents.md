@@ -62,6 +62,10 @@ Use this guide when navigating or extending the codebase so each agent understan
    - Added `BUILD_LINK` action to reducer with era derivation from phase.
    - Reducer enforces turn/era/link legality and uses silent no-op on illegal actions by design.
    - Added legal move enumeration via `getLegalMoves` for active-player link builds.
+5. **M4 Typed Reducer Outcomes**
+   - `reduce` now returns typed results with explicit error codes for invalid actions.
+   - Invalid action outcomes include reason metadata (`NOT_CURRENT_PLAYER`, `ILLEGAL_LINK_FOR_PHASE`).
+   - Tests now assert validation outcomes directly instead of relying on silent state no-op behavior.
 
 ## Testing Status
 
@@ -75,4 +79,4 @@ Use this guide when navigating or extending the codebase so each agent understan
 - UI sandbox uses `createGame(['A','B','C','D'])`; adjust seats array to mimic real player counts.
 - Any future module split should follow the cards migration precedent: types-only files, barrel exports, and pure helpers.
 - Keep reducers pure and exhaustively switch over `Action` unions—TypeScript will enforce via `never` guard.
-- Technical debt: reducer currently handles illegal actions as silent no-op; add typed validation outcomes or explicit invalid-action logging before economy/card-cost rules.
+- Remaining debt: add invalid-action logging strategy (currently reasons are returned but not persisted in `log`).
