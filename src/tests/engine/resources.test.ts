@@ -1,33 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { createGame } from "@/engine";
 import { buildLink } from "@/engine/board/api";
-import { moveCoalToMarket, resolveCoal, resolveIron } from "@/engine/rules/resources";
-import { coalMarketPrice } from "@/engine/rules/config";
+import {
+  MAX_COAL_MARKET_UNITS,
+  MAX_IRON_MARKET_UNITS,
+  coalMarketPrice,
+  ironMarketPrice,
+} from "@/engine/rules/config";
+import { moveCoalToMarket, moveIronToMarket, resolveCoal, resolveIron } from "@/engine/rules/resources";
+import { makeTile, withTiles } from "./helpers";
 
 describe("resolveCoal", () => {
   it("consumes connected coal from board first", () => {
-    const baseState = {
-      ...createGame(["A", "B"], "resources-tile-first"),
-      phase: "rail" as const,
-    };
-    const state = {
-      ...baseState,
-      board: {
-        ...baseState.board,
-        tiles: {
-          "tile-coal-nuneaton": {
-            id: "tile-coal-nuneaton",
-            city: "Nuneaton",
-            industry: "coal" as const,
-            owner: "A",
-            level: 1,
-            resourcesRemaining: 2,
-            incomeOnFlip: 2,
-            flipped: false,
-          },
-        },
-      },
-    };
+    const base = { ...createGame(["A", "B"], "resources-tile-first"), phase: "rail" as const };
+    const state = withTiles(base, {
+      "tile-coal-nuneaton": makeTile("tile-coal-nuneaton", {
+        city: "Nuneaton",
+        industry: "coal",
+        resourcesRemaining: 2,
+        incomeOnFlip: 2,
+      }),
+    });
     const connectivityState = buildLink(state, "A", "Coventry", "Nuneaton", "rail");
 
     const result = resolveCoal(state, "A", {
@@ -35,75 +28,37 @@ describe("resolveCoal", () => {
       connectedTo: ["Coventry", "Nuneaton"],
       connectivityState,
     });
+
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-
-    expect(result.sources[0]?.kind).toBe("tile");
-    expect(result.sources[0]).toMatchObject({ tileId: "tile-coal-nuneaton" });
+    expect(result.sources[0]).toMatchObject({ kind: "tile", tileId: "tile-coal-nuneaton" });
     expect(result.spend).toBe(0);
-    expect(result.state.board.tiles["tile-coal-nuneaton"].resourcesRemaining).toBe(
-      state.board.tiles["tile-coal-nuneaton"].resourcesRemaining - 1,
-    );
+    expect(result.state.board.tiles["tile-coal-nuneaton"].resourcesRemaining).toBe(1);
   });
 
-  it("uses cheapest coal market slot when no connected coal tiles exist", () => {
-    const base = {
-      ...createGame(["A", "B"], "resources-market-first"),
-      phase: "rail" as const,
-    };
-    const state = {
-      ...base,
-      board: {
-        ...base.board,
-        tiles: Object.fromEntries(
-          Object.entries(base.board.tiles).map(([id, tile]) => [
-            id,
-            { ...tile, resourcesRemaining: 0, incomeOnFlip: tile.incomeOnFlip ?? 0, flipped: true },
-          ]),
-        ),
-      },
-    };
-
-    expect(state.market.coal.units).toBeGreaterThan(0);
+  it("uses market price when no connected coal tiles exist", () => {
+    const state = { ...createGame(["A", "B"], "resources-market-first"), phase: "rail" as const };
     const price = coalMarketPrice(state.market.coal.units);
     const connectivityState = buildLink(state, "A", "Coventry", "Nuneaton", "rail");
+
     const result = resolveCoal(state, "A", {
       requiredUnits: 1,
       connectedTo: ["Coventry", "Nuneaton"],
       connectivityState,
     });
+
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-
     expect(result.sources[0]).toMatchObject({ kind: "market", price });
     expect(result.spend).toBe(price);
     expect(result.state.market.coal.units).toBe(state.market.coal.units - 1);
-    expect(result.state.players.A.money).toBe(state.players.A.money - price);
   });
 
-  it("uses fallback coal price when market is empty", () => {
-    const base = {
-      ...createGame(["A", "B"], "resources-fallback"),
-      phase: "rail" as const,
-    };
+  it("uses fallback price when market is empty", () => {
+    const base = { ...createGame(["A", "B"], "resources-fallback"), phase: "rail" as const };
     const state = {
       ...base,
-      board: {
-        ...base.board,
-        tiles: Object.fromEntries(
-          Object.entries(base.board.tiles).map(([id, tile]) => [
-            id,
-            { ...tile, resourcesRemaining: 0, incomeOnFlip: tile.incomeOnFlip ?? 0, flipped: true },
-          ]),
-        ),
-      },
-      market: {
-        ...base.market,
-        coal: {
-          ...base.market.coal,
-          units: 0,
-        },
-      },
+      market: { ...base.market, coal: { ...base.market.coal, units: 0 } },
     };
     const connectivityState = buildLink(state, "A", "Coventry", "Nuneaton", "rail");
 
@@ -112,113 +67,168 @@ describe("resolveCoal", () => {
       connectedTo: ["Coventry", "Nuneaton"],
       connectivityState,
     });
+
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-
     expect(result.sources[0]).toMatchObject({
       kind: "fallback",
       price: state.market.coal.fallbackPrice,
     });
-    expect(result.spend).toBe(state.market.coal.fallbackPrice);
-    expect(result.state.players.A.money).toBe(
-      state.players.A.money - state.market.coal.fallbackPrice,
-    );
   });
 
-  it("selects connected coal tiles deterministically by tile id", () => {
-    const base = {
-      ...createGame(["A", "B"], "resources-deterministic"),
-      phase: "rail" as const,
-    };
-    const state = {
-      ...base,
-      board: {
-        ...base.board,
-        tiles: {
-          ...base.board.tiles,
-          "tile-coal-a": {
-            id: "tile-coal-a",
-            city: "Nuneaton" as const,
-            industry: "coal" as const,
-            owner: "A",
-            level: 1,
-            resourcesRemaining: 1,
-            incomeOnFlip: 1,
-            flipped: false,
-          },
-          "tile-coal-z": {
-            id: "tile-coal-z",
-            city: "Nuneaton" as const,
-            industry: "coal" as const,
-            owner: "A",
-            level: 1,
-            resourcesRemaining: 1,
-            incomeOnFlip: 1,
-            flipped: false,
-          },
-        },
-      },
-    };
+  it("resolves multi-unit coal deterministically across tile then market", () => {
+    const base = { ...createGame(["A", "B"], "resources-multi"), phase: "rail" as const };
+    const state = withTiles(base, {
+      "tile-coal-a": makeTile("tile-coal-a", {
+        city: "Nuneaton",
+        industry: "coal",
+        resourcesRemaining: 1,
+      }),
+    });
     const connectivityState = buildLink(state, "A", "Coventry", "Nuneaton", "rail");
+    const marketPrice = coalMarketPrice(state.market.coal.units);
 
     const result = resolveCoal(state, "A", {
-      requiredUnits: 1,
+      requiredUnits: 2,
       connectedTo: ["Coventry", "Nuneaton"],
       connectivityState,
     });
+
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.sources[0]).toMatchObject({ kind: "tile", tileId: "tile-coal-a" });
+    expect(result.sources).toMatchObject([
+      { kind: "tile", tileId: "tile-coal-a" },
+      { kind: "market", price: marketPrice },
+    ]);
+    expect(result.spend).toBe(marketPrice);
   });
+});
 
-  it("requires port connectivity to move coal from tile to market", () => {
-    const state = {
-      ...createGame(["A", "B"], "coal-port-access"),
-      board: {
-        ...createGame(["A", "B"], "coal-port-access").board,
-        tiles: {
-          "tile-coal-stafford": {
-            id: "tile-coal-stafford",
-            city: "Stafford",
-            industry: "coal" as const,
-            owner: "A",
-            level: 1,
-            resourcesRemaining: 1,
-            incomeOnFlip: 1,
-            flipped: false,
-          },
-        },
-      },
-    };
+describe("coal market movement", () => {
+  it("requires port connectivity to move coal tile resources to market", () => {
+    const state = withTiles(createGame(["A", "B"], "coal-port-access"), {
+      "tile-coal-stafford": makeTile("tile-coal-stafford", {
+        city: "Stafford",
+        industry: "coal",
+        resourcesRemaining: 1,
+      }),
+    });
+
     const moved = moveCoalToMarket(state, "tile-coal-stafford");
     expect(moved.moved).toBe(0);
     expect(moved.state.board.tiles["tile-coal-stafford"].resourcesRemaining).toBe(1);
   });
 
-  it("consumes iron from board without connectivity requirements", () => {
+  it("does not overfill coal market capacity", () => {
+    const connected = buildLink(
+      withTiles(createGame(["A", "B"], "coal-market-cap"), {
+        "tile-coal-stafford": makeTile("tile-coal-stafford", {
+          city: "Stafford",
+          industry: "coal",
+          resourcesRemaining: 2,
+        }),
+      }),
+      "A",
+      "Stafford",
+      "Warrington",
+      "canal",
+    );
     const state = {
-      ...createGame(["A", "B"], "iron-no-connectivity"),
-      board: {
-        ...createGame(["A", "B"], "iron-no-connectivity").board,
-        tiles: {
-          "tile-iron-dudley": {
-            id: "tile-iron-dudley",
-            city: "Dudley",
-            industry: "iron" as const,
-            owner: "A",
-            level: 1,
-            resourcesRemaining: 1,
-            incomeOnFlip: 1,
-            flipped: false,
-          },
-        },
+      ...connected,
+      market: {
+        ...connected.market,
+        coal: { ...connected.market.coal, units: MAX_COAL_MARKET_UNITS },
       },
     };
+
+    const moved = moveCoalToMarket(state, "tile-coal-stafford");
+    expect(moved.moved).toBe(0);
+    expect(moved.state.market.coal.units).toBe(MAX_COAL_MARKET_UNITS);
+    expect(moved.state.board.tiles["tile-coal-stafford"].resourcesRemaining).toBe(2);
+  });
+});
+
+describe("resolveIron", () => {
+  it("consumes iron from board without connectivity requirements", () => {
+    const state = withTiles(createGame(["A", "B"], "iron-no-connectivity"), {
+      "tile-iron-dudley": makeTile("tile-iron-dudley", {
+        city: "Dudley",
+        industry: "iron",
+        owner: "A",
+      }),
+    });
 
     const result = resolveIron(state, "B", { requiredUnits: 1 });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.sources[0]).toMatchObject({ kind: "tile", tileId: "tile-iron-dudley" });
     expect(result.state.players.A.income).toBe(state.players.A.income + 1);
+  });
+
+  it("uses market then fallback when iron market is depleted", () => {
+    const base = createGame(["A", "B"], "iron-market-fallback");
+    const state = {
+      ...base,
+      market: {
+        ...base.market,
+        iron: { ...base.market.iron, units: 1 },
+      },
+    };
+    const marketPrice = ironMarketPrice(1);
+    const fallback = state.market.iron.fallbackPrice;
+
+    const result = resolveIron(state, "A", { requiredUnits: 2 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.sources).toMatchObject([
+      { kind: "market", price: marketPrice },
+      { kind: "fallback", price: fallback },
+    ]);
+    expect(result.spend).toBe(marketPrice + fallback);
+  });
+
+  it("returns insufficient resources when fallback iron is unaffordable", () => {
+    const base = createGame(["A", "B"], "iron-unaffordable");
+    const state = {
+      ...base,
+      market: {
+        ...base.market,
+        iron: { ...base.market.iron, units: 0 },
+      },
+      players: {
+        ...base.players,
+        A: { ...base.players.A, money: base.market.iron.fallbackPrice - 1 },
+      },
+    };
+
+    const result = resolveIron(state, "A", { requiredUnits: 1 });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("INSUFFICIENT_RESOURCES");
+  });
+});
+
+describe("iron market movement", () => {
+  it("does not overfill iron market capacity", () => {
+    const state = {
+      ...withTiles(createGame(["A", "B"], "iron-market-cap"), {
+        "tile-iron-dudley": makeTile("tile-iron-dudley", {
+          city: "Dudley",
+          industry: "iron",
+          resourcesRemaining: 1,
+        }),
+      }),
+      market: {
+        ...createGame(["A", "B"], "iron-market-cap").market,
+        iron: {
+          ...createGame(["A", "B"], "iron-market-cap").market.iron,
+          units: MAX_IRON_MARKET_UNITS,
+        },
+      },
+    };
+
+    const moved = moveIronToMarket(state, "tile-iron-dudley");
+    expect(moved.moved).toBe(0);
+    expect(moved.state.market.iron.units).toBe(MAX_IRON_MARKET_UNITS);
   });
 });

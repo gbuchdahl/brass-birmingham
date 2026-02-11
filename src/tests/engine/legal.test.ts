@@ -26,6 +26,29 @@ describe("getLegalMoves", () => {
     expect(moves).toEqual([]);
   });
 
+  it("respects current phase when enumerating legal links", () => {
+    const state = {
+      ...createGame(["A", "B"], "legal-moves-rail-phase"),
+      phase: "rail" as const,
+    };
+    const moves = getLegalMoves(state, "A");
+    expect(moves.length).toBeGreaterThan(0);
+    expect(
+      moves.every(
+        (move) =>
+          move.type === "BUILD_LINK" &&
+          isLegalLink(state, move.from, move.to, "rail"),
+      ),
+    ).toBe(true);
+    expect(
+      moves.some(
+        (move) =>
+          move.type === "BUILD_LINK" &&
+          !isLegalLink(state, move.from, move.to, "canal"),
+      ),
+    ).toBe(true);
+  });
+
   it("shrinks available link moves after a successful build", () => {
     const state = createGame(["A", "B"], "legal-moves-shrink");
     const initialMoves = getLegalMoves(state, "A");

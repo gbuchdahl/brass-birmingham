@@ -4,6 +4,7 @@ import type { GameState, ReduceResult } from "@/engine";
 import { buildLink } from "@/engine/board/api";
 import type { Edge } from "@/engine/board/topology";
 import { coalMarketPrice } from "@/engine/rules/config";
+import { makeTile, withTiles } from "./helpers";
 
 function findEdgeOrThrow(
   state: GameState,
@@ -481,6 +482,99 @@ describe("reduce", () => {
     expect(next.players.A.income).toBe(state.players.A.income + 1);
   });
 
+  it("rejects BUILD_INDUSTRY from non-current player", () => {
+    const state = createGame(["A", "B"], "build-industry-wrong-player");
+    const next = expectInvalid(
+      reduce(state, {
+        type: "BUILD_INDUSTRY",
+        player: "B",
+        city: "Stafford",
+        industry: "coal",
+        level: 1,
+      }),
+      state,
+      "NOT_CURRENT_PLAYER",
+    );
+    expect(next.board).toBe(state.board);
+  });
+
+  it("rejects BUILD_INDUSTRY in unsupported city/industry slots", () => {
+    const state = createGame(["A", "B"], "build-industry-illegal-city");
+    const next = expectInvalid(
+      reduce(state, {
+        type: "BUILD_INDUSTRY",
+        player: "A",
+        city: "Coventry",
+        industry: "coal",
+        level: 1,
+      }),
+      state,
+      "ILLEGAL_INDUSTRY_BUILD",
+    );
+    expect(next.board).toBe(state.board);
+  });
+
+  it("rejects BUILD_INDUSTRY when same unflipped industry already exists in city", () => {
+    const state = withTiles(createGame(["A", "B"], "build-industry-duplicate"), {
+      "tile-coal-stafford": makeTile("tile-coal-stafford", {
+        city: "Stafford",
+        industry: "coal",
+        flipped: false,
+      }),
+    });
+    const next = expectInvalid(
+      reduce(state, {
+        type: "BUILD_INDUSTRY",
+        player: "A",
+        city: "Stafford",
+        industry: "coal",
+        level: 1,
+      }),
+      state,
+      "ILLEGAL_INDUSTRY_BUILD",
+    );
+    expect(next.players.A.money).toBe(state.players.A.money);
+  });
+
+  it("rejects BUILD_INDUSTRY when player cannot afford build cost", () => {
+    const base = createGame(["A", "B"], "build-industry-no-money");
+    const state = {
+      ...base,
+      players: {
+        ...base.players,
+        A: { ...base.players.A, money: 0 },
+      },
+    };
+    const next = expectInvalid(
+      reduce(state, {
+        type: "BUILD_INDUSTRY",
+        player: "A",
+        city: "Stafford",
+        industry: "coal",
+        level: 1,
+      }),
+      state,
+      "ILLEGAL_INDUSTRY_BUILD",
+    );
+    expect(next.players.A.money).toBe(0);
+  });
+
+  it("rejects BUILD_INDUSTRY for unsupported placeholder level", () => {
+    const state = createGame(["A", "B"], "build-industry-bad-level");
+    const next = expectInvalid(
+      reduce(state, {
+        type: "BUILD_INDUSTRY",
+        player: "A",
+        city: "Stafford",
+        industry: "coal",
+        level: 2,
+      }),
+      state,
+      "ILLEGAL_INDUSTRY_BUILD",
+    );
+    expect(next.board.tiles).toEqual(state.board.tiles);
+  });
+
   it("returns INVALID_TILE_FLIP_STATE for malformed tile data", () => {
     const base = createGame(["A", "B"], "bad-tile-invariant");
     const badState = {
@@ -503,6 +597,27 @@ describe("reduce", () => {
     };
     const result = reduce(badState, { type: "END_TURN", player: "A" });
     const next = expectInvalid(result, badState, "INVALID_TILE_FLIP_STATE");
+    expect(next.log[next.log.length - 1]).toMatchObject({
+      type: "INVALID_ACTION",
+      data: { code: "INVALID_TILE_FLIP_STATE" },
+    });
+  });
+
+  it("returns INVALID_TILE_FLIP_STATE for flipped tile with remaining resources", () => {
+    const base = createGame(["A", "B"], "bad-tile-invariant-reverse");
+    const badState = withTiles(base, {
+      "tile-bad": makeTile("tile-bad", {
+        city: "Stafford",
+        industry: "coal",
+        resourcesRemaining: 1,
+        flipped: true,
+      }),
+    });
+    const next = expectInvalid(
+      reduce(badState, { type: "END_TURN", player: "A" }),
+      badState,
+      "INVALID_TILE_FLIP_STATE",
+    );
     expect(next.log[next.log.length - 1]).toMatchObject({
       type: "INVALID_ACTION",
       data: { code: "INVALID_TILE_FLIP_STATE" },
