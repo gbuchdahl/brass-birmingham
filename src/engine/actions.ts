@@ -1,6 +1,12 @@
 import type { PlayerId } from "./types";
+import type { NodeId } from "./board/topology";
 
-// We'll add more actions later; for M1 we only need END_TURN.
 export type EndTurn = { type: "END_TURN"; player: PlayerId };
+export type BuildLink = {
+  type: "BUILD_LINK";
+  player: PlayerId;
+  from: NodeId;
+  to: NodeId;
+};
 
-export type Action = EndTurn;
+export type Action = EndTurn | BuildLink;

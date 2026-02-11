@@ -1,4 +1,4 @@
-export type EraKind = "canal" | "rail";
+import type { EraKind } from "../types";
 
 export type EdgeKind = EraKind | "both";
 

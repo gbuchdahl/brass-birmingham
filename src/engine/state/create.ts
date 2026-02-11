@@ -38,7 +38,7 @@ export function createGame(
   return {
     id: `game-${resolvedSeed}`,
     seed: resolvedSeed,
-    phase: "Canal",
+    phase: "canal",
     round: 1,
     turn: 1,
     seatOrder: [...seats],

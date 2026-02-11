@@ -1,5 +1,6 @@
 import type { Action } from "./actions";
 import type { GameState } from "./types";
+import { buildLink, isLegalLink } from "./board/api";
 
 export function reduce(state: GameState, action: Action): GameState {
   switch (action.type) {
@@ -23,6 +24,29 @@ export function reduce(state: GameState, action: Action): GameState {
             idx: state.log.length,
             type: "END_TURN",
             data: { from: action.player, to: next },
+          },
+        ],
+      };
+    }
+    case "BUILD_LINK": {
+      if (action.player !== state.currentPlayer) {
+        return state;
+      }
+
+      const era = state.phase;
+      if (!isLegalLink(state, action.from, action.to, era)) {
+        return state;
+      }
+
+      const nextState = buildLink(state, action.player, action.from, action.to, era);
+      return {
+        ...nextState,
+        log: [
+          ...nextState.log,
+          {
+            idx: nextState.log.length,
+            type: "BUILD_LINK",
+            data: { player: action.player, from: action.from, to: action.to, era },
           },
         ],
       };

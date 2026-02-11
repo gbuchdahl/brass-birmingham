@@ -1,9 +1,9 @@
 import type { CardId, DeckState } from "./cards";
-import type { Topology, CityId, EraKind } from "./board/topology";
+import type { Topology } from "./board/topology";
 
 export type PlayerId = string;
 
-export type Phase = "Canal";
+export type EraKind = "canal" | "rail";
 
 export type GameEvent = {
   idx: number;
@@ -31,7 +31,7 @@ export type BoardState = {
 export type GameState = {
   id: string;
   seed: string;
-  phase: Phase;
+  phase: EraKind;
   round: number;
   turn: number;
   seatOrder: PlayerId[];

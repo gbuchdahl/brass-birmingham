@@ -1,5 +1,5 @@
-import type { GameState, PlayerId } from "../types";
-import type { EraKind, Edge, NodeId } from "./topology";
+import type { EraKind, GameState, PlayerId } from "../types";
+import type { Edge, NodeId } from "./topology";
 
 function edgeAllowsEra(edge: Edge, era: EraKind) {
   return edge.kind === era || edge.kind === "both";
