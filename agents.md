@@ -65,7 +65,8 @@ Use this guide when navigating or extending the codebase so each agent understan
 5. **M4 Typed Reducer Outcomes**
    - `reduce` now returns typed results with explicit error codes for invalid actions.
    - Invalid action outcomes include reason metadata (`NOT_CURRENT_PLAYER`, `ILLEGAL_LINK_FOR_PHASE`).
-   - Tests now assert validation outcomes directly instead of relying on silent state no-op behavior.
+   - Invalid actions append `INVALID_ACTION` log events with code/message/action/context.
+   - Tests assert validation outcomes and invalid-action log payloads directly.
 
 ## Testing Status
 
@@ -79,4 +80,4 @@ Use this guide when navigating or extending the codebase so each agent understan
 - UI sandbox uses `createGame(['A','B','C','D'])`; adjust seats array to mimic real player counts.
 - Any future module split should follow the cards migration precedent: types-only files, barrel exports, and pure helpers.
 - Keep reducers pure and exhaustively switch over `Action` unions—TypeScript will enforce via `never` guard.
-- Remaining debt: add invalid-action logging strategy (currently reasons are returned but not persisted in `log`).
+- Remaining debt: decide whether invalid actions should be surfaced in a dedicated UI/errors channel in addition to engine logs.

@@ -20,12 +20,44 @@ function ok(state: GameState): ReduceResult {
   return { ok: true, state };
 }
 
+function withInvalidActionLog(
+  state: GameState,
+  action: Action,
+  error: ReduceError,
+): GameState {
+  const nextEvent = {
+    idx: state.log.length,
+    type: "INVALID_ACTION",
+    data: {
+      code: error.code,
+      message: error.message,
+      player: action.player,
+      action,
+      context: {
+        currentPlayer: state.currentPlayer,
+        phase: state.phase,
+      },
+    },
+  };
+
+  return {
+    ...state,
+    log: [...state.log, nextEvent],
+  };
+}
+
 function invalid(
   state: GameState,
+  action: Action,
   code: ReduceErrorCode,
   message: string,
 ): ReduceResult {
-  return { ok: false, state, error: { code, message } };
+  const error = { code, message };
+  return {
+    ok: false,
+    state: withInvalidActionLog(state, action, error),
+    error,
+  };
 }
 
 export function reduce(state: GameState, action: Action): ReduceResult {
@@ -35,6 +67,7 @@ export function reduce(state: GameState, action: Action): ReduceResult {
       if (action.player !== state.currentPlayer) {
         return invalid(
           state,
+          action,
           "NOT_CURRENT_PLAYER",
           "Only the current player can end the turn.",
         );
@@ -61,6 +94,7 @@ export function reduce(state: GameState, action: Action): ReduceResult {
       if (action.player !== state.currentPlayer) {
         return invalid(
           state,
+          action,
           "NOT_CURRENT_PLAYER",
           "Only the current player can build a link.",
         );
@@ -70,6 +104,7 @@ export function reduce(state: GameState, action: Action): ReduceResult {
       if (!isLegalLink(state, action.from, action.to, era)) {
         return invalid(
           state,
+          action,
           "ILLEGAL_LINK_FOR_PHASE",
           "That link is not buildable in the current phase.",
         );
@@ -92,6 +127,6 @@ export function reduce(state: GameState, action: Action): ReduceResult {
     default:
       // Exhaustiveness guard (TS will flag if Action grows and we forget a case)
       const _never: never = action;
-      return invalid(state, "UNKNOWN_ACTION", `Unknown action: ${_never}`);
+      return invalid(state, action, "UNKNOWN_ACTION", `Unknown action: ${_never}`);
   }
 }

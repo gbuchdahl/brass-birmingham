@@ -23,6 +23,7 @@ function expectOk(result: ReduceResult): GameState {
 
 function expectInvalid(
   result: ReduceResult,
+  previous: GameState,
   code: "NOT_CURRENT_PLAYER" | "ILLEGAL_LINK_FOR_PHASE",
 ): GameState {
   expect(result.ok).toBe(false);
@@ -30,7 +31,21 @@ function expectInvalid(
     throw new Error("Expected invalid result");
   }
   expect(result.error.code).toBe(code);
-  return result.state;
+  const next = result.state;
+  expect(next).not.toBe(previous);
+  expect(next.log).toHaveLength(previous.log.length + 1);
+  expect(next.log[next.log.length - 1]).toMatchObject({
+    type: "INVALID_ACTION",
+    data: {
+      code,
+      message: result.error.message,
+      context: {
+        currentPlayer: previous.currentPlayer,
+        phase: previous.phase,
+      },
+    },
+  });
+  return next;
 }
 
 describe("reduce", () => {
@@ -62,9 +77,18 @@ describe("reduce", () => {
     const state = createGame(["A", "B"]);
 
     const result = reduce(state, { type: "END_TURN", player: "B" });
-    const next = expectInvalid(result, "NOT_CURRENT_PLAYER");
+    const next = expectInvalid(result, state, "NOT_CURRENT_PLAYER");
+    const event = next.log[next.log.length - 1];
+    expect(event).toMatchObject({
+      type: "INVALID_ACTION",
+      data: {
+        player: "B",
+        action: { type: "END_TURN", player: "B" },
+      },
+    });
 
-    expect(next).toBe(state);
+    expect(next.turn).toBe(state.turn);
+    expect(next.currentPlayer).toBe(state.currentPlayer);
   });
 
   it("builds a legal canal link and appends a log event", () => {
@@ -111,8 +135,17 @@ describe("reduce", () => {
     );
     const [from, to] = target.nodes;
     const result = reduce(state, { type: "BUILD_LINK", player: "B", from, to });
-    const next = expectInvalid(result, "NOT_CURRENT_PLAYER");
-    expect(next).toBe(state);
+    const next = expectInvalid(result, state, "NOT_CURRENT_PLAYER");
+    const event = next.log[next.log.length - 1];
+    expect(event).toMatchObject({
+      type: "INVALID_ACTION",
+      data: {
+        player: "B",
+        action: { type: "BUILD_LINK", player: "B", from, to },
+      },
+    });
+    expect(next.turn).toBe(state.turn);
+    expect(next.currentPlayer).toBe(state.currentPlayer);
   });
 
   it("ignores BUILD_LINK on a rail-only edge during canal phase", () => {
@@ -125,9 +158,9 @@ describe("reduce", () => {
       from,
       to,
     });
-    const next = expectInvalid(result, "ILLEGAL_LINK_FOR_PHASE");
+    const next = expectInvalid(result, state, "ILLEGAL_LINK_FOR_PHASE");
 
-    expect(next).toBe(state);
+    expect(next.board).toBe(state.board);
   });
 
   it("ignores BUILD_LINK when edge is already built", () => {
@@ -141,9 +174,10 @@ describe("reduce", () => {
     const built = expectOk(reduce(state, { type: "BUILD_LINK", player: "A", from, to }));
     const duplicate = expectInvalid(
       reduce(built, { type: "BUILD_LINK", player: "A", from, to }),
+      built,
       "ILLEGAL_LINK_FOR_PHASE",
     );
-    expect(duplicate).toBe(built);
+    expect(duplicate.board).toBe(built.board);
   });
 
   it("accepts BUILD_LINK when from/to are reversed", () => {
@@ -179,8 +213,8 @@ describe("reduce", () => {
       from: "Birmingham",
       to: "Gloucester",
     });
-    const next = expectInvalid(result, "ILLEGAL_LINK_FOR_PHASE");
+    const next = expectInvalid(result, state, "ILLEGAL_LINK_FOR_PHASE");
 
-    expect(next).toBe(state);
+    expect(next.board).toBe(state.board);
   });
 });
