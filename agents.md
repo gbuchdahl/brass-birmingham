@@ -75,6 +75,7 @@ Use this guide when navigating or extending the codebase so each agent understan
 
 ## Notes for Agents
 
+- Read `README.md` before making code changes.
 - Deterministic seed defaults to `"dev-seed"` outside production for hydration stability.
 - Card IDs (`c0..`) generated in deck builder; log events capture hands dealt (hand size only).
 - UI sandbox uses `createGame(['A','B','C','D'])`; adjust seats array to mimic real player counts.
