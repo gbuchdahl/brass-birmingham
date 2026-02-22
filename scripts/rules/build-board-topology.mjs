@@ -7,12 +7,46 @@ const INPUT = path.join(ROOT, "docs", "rules-data", "board-topology.yaml");
 const OUTPUT = path.join(ROOT, "src", "engine", "board", "generated", "topology.ts");
 
 const ALLOWED_EDGE_KINDS = new Set(["canal", "rail", "both"]);
+const ALLOWED_MAP_ZONES = new Set([
+  "northwest",
+  "north",
+  "northeast",
+  "west",
+  "center",
+  "east",
+  "southwest",
+  "south",
+  "southeast",
+]);
 
 function assertStringArray(value, label) {
   if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
     throw new Error(`${label} must be an array of strings.`);
   }
   return value;
+}
+
+function normalizeIndustrySlots(value, label) {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array.`);
+  }
+
+  return value.map((entry, index) => {
+    if (typeof entry === "string") {
+      return [entry];
+    }
+    if (
+      Array.isArray(entry) &&
+      entry.length > 0 &&
+      entry.every((choice) => typeof choice === "string")
+    ) {
+      return entry;
+    }
+
+    throw new Error(
+      `${label}[${index}] must be a string or a non-empty array of strings.`,
+    );
+  });
 }
 
 async function main() {
@@ -24,8 +58,22 @@ async function main() {
   }
 
   const cities = Object.entries(parsed.cities).map(([name, value]) => {
-    const industries = assertStringArray(value.industries, `City ${name} industries`);
-    return { name, industries };
+    const slots = normalizeIndustrySlots(value.industries, `City ${name} industries`);
+    const industries = slots.flatMap((slot) => slot);
+    const mapZone =
+      value.map_zone == null
+        ? "center"
+        : typeof value.map_zone === "string"
+          ? value.map_zone
+          : null;
+
+    if (!mapZone || !ALLOWED_MAP_ZONES.has(mapZone)) {
+      throw new Error(
+        `City ${name} map_zone must be one of: ${[...ALLOWED_MAP_ZONES].join(", ")}`,
+      );
+    }
+
+    return { name, industries, slots, mapZone };
   });
 
   const ports = assertStringArray(parsed.ports, "ports");
@@ -67,7 +115,11 @@ async function main() {
 
   const cityDefs = {};
   for (const city of cities) {
-    cityDefs[city.name] = { industries: city.industries };
+    cityDefs[city.name] = {
+      industries: city.industries,
+      slots: city.slots,
+      mapZone: city.mapZone,
+    };
   }
 
   const generated = `/* eslint-disable */\n// AUTO-GENERATED FILE. DO NOT EDIT DIRECTLY.\n// Source: docs/rules-data/board-topology.yaml\n\nexport const CITY_DEFS = ${JSON.stringify(cityDefs, null, 2)} as const;\n\nexport const PORT_IDS = ${JSON.stringify(ports, null, 2)} as const;\n\nexport const EDGE_DEFS = ${JSON.stringify(edges, null, 2)} as const;\n`;

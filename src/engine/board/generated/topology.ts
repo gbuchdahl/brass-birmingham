@@ -7,87 +7,353 @@ export const CITY_DEFS = {
     "industries": [
       "Coal",
       "Iron",
-      "Manufactured"
-    ]
+      "Manufactured",
+      "Manufactured",
+      "Iron"
+    ],
+    "slots": [
+      [
+        "Coal",
+        "Iron"
+      ],
+      [
+        "Manufactured"
+      ],
+      [
+        "Manufactured"
+      ],
+      [
+        "Iron"
+      ]
+    ],
+    "mapZone": "center"
   },
   "Coventry": {
     "industries": [
-      "Cotton"
-    ]
+      "Cotton",
+      "Pottery",
+      "Iron"
+    ],
+    "slots": [
+      [
+        "Cotton"
+      ],
+      [
+        "Pottery"
+      ],
+      [
+        "Iron"
+      ]
+    ],
+    "mapZone": "east"
   },
   "Wolverhampton": {
     "industries": [
+      "Coal",
       "Coal"
-    ]
+    ],
+    "slots": [
+      [
+        "Coal"
+      ],
+      [
+        "Coal"
+      ]
+    ],
+    "mapZone": "west"
   },
   "Dudley": {
     "industries": [
       "Coal",
       "Iron",
-      "Beer"
-    ]
+      "Manufactured"
+    ],
+    "slots": [
+      [
+        "Coal"
+      ],
+      [
+        "Iron"
+      ],
+      [
+        "Manufactured"
+      ]
+    ],
+    "mapZone": "southwest"
   },
   "Walsall": {
     "industries": [
       "Iron",
-      "Manufactured"
-    ]
+      "Coal"
+    ],
+    "slots": [
+      [
+        "Iron"
+      ],
+      [
+        "Coal"
+      ]
+    ],
+    "mapZone": "center"
   },
   "Tamworth": {
     "industries": [
-      "Pottery"
-    ]
+      "Cotton",
+      "Manufactured"
+    ],
+    "slots": [
+      [
+        "Cotton"
+      ],
+      [
+        "Manufactured"
+      ]
+    ],
+    "mapZone": "east"
   },
   "Nuneaton": {
     "industries": [
-      "Coal"
-    ]
+      "Coal",
+      "Cotton"
+    ],
+    "slots": [
+      [
+        "Coal"
+      ],
+      [
+        "Cotton"
+      ]
+    ],
+    "mapZone": "east"
   },
   "Coalbrookdale": {
     "industries": [
       "Iron",
-      "Pottery"
-    ]
+      "Coal",
+      "Iron",
+      "Manufactured"
+    ],
+    "slots": [
+      [
+        "Iron",
+        "Coal"
+      ],
+      [
+        "Iron"
+      ],
+      [
+        "Manufactured"
+      ]
+    ],
+    "mapZone": "west"
   },
   "Kidderminster": {
     "industries": [
+      "Manufactured",
       "Manufactured"
-    ]
+    ],
+    "slots": [
+      [
+        "Manufactured"
+      ],
+      [
+        "Manufactured"
+      ]
+    ],
+    "mapZone": "south"
   },
   "Worcester": {
     "industries": [
-      "Pottery",
-      "Beer"
-    ]
+      "Cotton",
+      "Cotton"
+    ],
+    "slots": [
+      [
+        "Cotton"
+      ],
+      [
+        "Cotton"
+      ]
+    ],
+    "mapZone": "south"
   },
   "Redditch": {
     "industries": [
-      "Manufactured",
-      "Beer"
-    ]
+      "Iron",
+      "Manufactured"
+    ],
+    "slots": [
+      [
+        "Iron"
+      ],
+      [
+        "Manufactured"
+      ]
+    ],
+    "mapZone": "south"
   },
   "Stafford": {
     "industries": [
-      "Coal"
-    ]
+      "Coal",
+      "Pottery"
+    ],
+    "slots": [
+      [
+        "Coal"
+      ],
+      [
+        "Pottery"
+      ]
+    ],
+    "mapZone": "northwest"
   },
   "Burton": {
     "industries": [
       "Beer",
-      "Manufactured"
-    ]
+      "Coal"
+    ],
+    "slots": [
+      [
+        "Beer"
+      ],
+      [
+        "Coal"
+      ]
+    ],
+    "mapZone": "northeast"
   },
   "Cannock": {
     "industries": [
       "Coal",
       "Manufactured"
-    ]
+    ],
+    "slots": [
+      [
+        "Coal"
+      ],
+      [
+        "Manufactured"
+      ]
+    ],
+    "mapZone": "center"
   },
   "Derby": {
     "industries": [
+      "Cotton",
+      "Coal",
+      "Iron",
+      "Manufactured",
+      "Manufactured"
+    ],
+    "slots": [
+      [
+        "Cotton"
+      ],
+      [
+        "Coal"
+      ],
+      [
+        "Iron",
+        "Manufactured"
+      ],
+      [
+        "Manufactured"
+      ]
+    ],
+    "mapZone": "northeast"
+  },
+  "Stoke-on-Trent": {
+    "industries": [
+      "Cotton",
+      "Manufactured",
+      "Pottery",
+      "Iron",
+      "Coal"
+    ],
+    "slots": [
+      [
+        "Cotton"
+      ],
+      [
+        "Manufactured"
+      ],
+      [
+        "Pottery"
+      ],
+      [
+        "Iron",
+        "Coal"
+      ]
+    ],
+    "mapZone": "north"
+  },
+  "Stone": {
+    "industries": [
       "Beer",
+      "Manufactured",
+      "Iron"
+    ],
+    "slots": [
+      [
+        "Beer"
+      ],
+      [
+        "Manufactured",
+        "Iron"
+      ]
+    ],
+    "mapZone": "north"
+  },
+  "Uttoxeter": {
+    "industries": [
+      "Beer",
+      "Beer"
+    ],
+    "slots": [
+      [
+        "Beer"
+      ],
+      [
+        "Beer"
+      ]
+    ],
+    "mapZone": "north"
+  },
+  "Leek": {
+    "industries": [
+      "Cotton",
+      "Manufactured"
+    ],
+    "slots": [
+      [
+        "Cotton"
+      ],
+      [
+        "Manufactured"
+      ]
+    ],
+    "mapZone": "north"
+  },
+  "Belper": {
+    "industries": [
+      "Cotton",
+      "Manufactured",
+      "Iron",
       "Pottery"
-    ]
+    ],
+    "slots": [
+      [
+        "Cotton"
+      ],
+      [
+        "Manufactured",
+        "Iron"
+      ],
+      [
+        "Pottery"
+      ]
+    ],
+    "mapZone": "northeast"
   }
 } as const;
 
@@ -134,6 +400,14 @@ export const EDGE_DEFS = [
       "Tamworth"
     ],
     "kind": "both"
+  },
+  {
+    "nodes": [
+      "Birmingham",
+      "Burton"
+    ],
+    "kind": "both",
+    "comment": "image-inferred edge; verify era availability"
   },
   {
     "nodes": [
@@ -315,16 +589,14 @@ export const EDGE_DEFS = [
       "Nuneaton",
       "Nottingham"
     ],
-    "kind": "rail",
-    "comment": "needs image verification"
+    "kind": "rail"
   },
   {
     "nodes": [
       "Redditch",
       "Oxford"
     ],
-    "kind": "canal",
-    "comment": "verify era and exact endpoint"
+    "kind": "canal"
   },
   {
     "nodes": [
@@ -340,6 +612,70 @@ export const EDGE_DEFS = [
       "Tamworth"
     ],
     "kind": "rail",
-    "comment": "confirm if this edge exists"
+    "comment": "verify if this should be both"
+  },
+  {
+    "nodes": [
+      "Stafford",
+      "Stone"
+    ],
+    "kind": "both",
+    "comment": "image-inferred edge; verify era availability"
+  },
+  {
+    "nodes": [
+      "Stone",
+      "Stoke-on-Trent"
+    ],
+    "kind": "both",
+    "comment": "image-inferred edge; verify era availability"
+  },
+  {
+    "nodes": [
+      "Stoke-on-Trent",
+      "Warrington"
+    ],
+    "kind": "canal",
+    "comment": "image-inferred edge; verify era availability"
+  },
+  {
+    "nodes": [
+      "Stoke-on-Trent",
+      "Leek"
+    ],
+    "kind": "both",
+    "comment": "image-inferred edge; verify era availability"
+  },
+  {
+    "nodes": [
+      "Stone",
+      "Uttoxeter"
+    ],
+    "kind": "both",
+    "comment": "image-inferred edge; verify era availability"
+  },
+  {
+    "nodes": [
+      "Uttoxeter",
+      "Derby"
+    ],
+    "kind": "both",
+    "comment": "image-inferred edge; verify era availability"
+  },
+  {
+    "nodes": [
+      "Leek",
+      "Belper"
+    ],
+    "kind": "both",
+    "comment": "image-inferred edge; verify era availability"
+  },
+  {
+    "nodes": [
+      "Belper",
+      "Derby"
+    ],
+    "kind": "both",
+    "comment": "image-inferred edge; verify era availability"
   }
 ] as const;

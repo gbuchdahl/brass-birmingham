@@ -1,34 +1,79 @@
 cities:
+  # Slot notation:
+  # - [Iron] means a single-industry slot.
+  # - [Iron, Coal] means one board space that allows either industry.
+  # TODO(image-only inference): verify Birmingham slot mix from a higher-resolution source.
   Birmingham:
-    industries: [Coal, Iron, Manufactured]
+    map_zone: center
+    # TODO(image-only inference): one slot appears potentially dual-use in the source image.
+    industries: [[Coal, Iron], [Manufactured], [Manufactured], [Iron]]
   Coventry:
-    industries: [Cotton]
+    map_zone: east
+    industries: [[Cotton], [Pottery], [Iron]]
   Wolverhampton:
-    industries: [Coal]
+    map_zone: west
+    industries: [[Coal], [Coal]]
   Dudley:
-    industries: [Coal, Iron, Beer]
+    map_zone: southwest
+    industries: [[Coal], [Iron], [Manufactured]]
   Walsall:
-    industries: [Iron, Manufactured]
+    map_zone: center
+    industries: [[Iron], [Coal]]
   Tamworth:
-    industries: [Pottery]
+    map_zone: east
+    industries: [[Cotton], [Manufactured]]
   Nuneaton:
-    industries: [Coal]
+    map_zone: east
+    industries: [[Coal], [Cotton]]
   Coalbrookdale:
-    industries: [Iron, Pottery]
+    map_zone: west
+    # Slot-level options: each item is one board slot, with one or more allowed industries.
+    industries: [[Iron, Coal], [Iron], [Manufactured]]
   Kidderminster:
-    industries: [Manufactured]
+    map_zone: south
+    industries: [[Manufactured], [Manufactured]]
   Worcester:
-    industries: [Pottery, Beer]
+    map_zone: south
+    industries: [[Cotton], [Cotton]]
   Redditch:
-    industries: [Manufactured, Beer]
+    map_zone: south
+    industries: [[Iron], [Manufactured]]
   Stafford:
-    industries: [Coal]
+    map_zone: northwest
+    industries: [[Coal], [Pottery]]
   Burton:
-    industries: [Beer, Manufactured]
+    map_zone: northeast
+    industries: [[Beer], [Coal]]
   Cannock:
-    industries: [Coal, Manufactured]
+    map_zone: center
+    industries: [[Coal], [Manufactured]]
   Derby:
-    industries: [Beer, Pottery]
+    # TODO(image-only inference): icon mapping suggests four slots; exact industry labels may differ.
+    map_zone: northeast
+    # TODO(image-only inference): one Derby slot may be dual-use; confirm from board print.
+    industries: [[Cotton], [Coal], [Iron, Manufactured], [Manufactured]]
+  Stoke-on-Trent:
+    # TODO(image-only inference): inferred from visible icons (cotton/manufactured/pottery/iron).
+    map_zone: north
+    # TODO(image-only inference): verify if one of these spaces is a dual-use slot.
+    industries: [[Cotton], [Manufactured], [Pottery], [Iron, Coal]]
+  Stone:
+    map_zone: north
+    # TODO(image-only inference): stone's second slot may be Iron/Manufactured depending icon mapping.
+    industries: [[Beer], [Manufactured, Iron]]
+  Uttoxeter:
+    map_zone: north
+    # TODO(image-only inference): currently treated as double Beer pending confirmation.
+    industries: [[Beer], [Beer]]
+  Leek:
+    map_zone: north
+    # TODO(image-only inference): verify Leek slot labels.
+    industries: [[Cotton], [Manufactured]]
+  Belper:
+    map_zone: northeast
+    # TODO(image-only inference): verify Belper slot labels.
+    # TODO(image-only inference): Belper may contain one dual-use space.
+    industries: [[Cotton], [Manufactured, Iron], [Pottery]]
 
 ports:
   - Gloucester
@@ -48,6 +93,9 @@ edges:
     kind: both
   - nodes: [Birmingham, Tamworth]
     kind: both
+  - nodes: [Birmingham, Burton]
+    kind: both
+    comment: image-inferred edge; verify era availability
   - nodes: [Coventry, Nuneaton]
     kind: both
   - nodes: [Coventry, Redditch]
@@ -100,13 +148,35 @@ edges:
     kind: both
   - nodes: [Nuneaton, Nottingham]
     kind: rail
-    comment: needs image verification
   - nodes: [Redditch, Oxford]
     kind: canal
-    comment: verify era and exact endpoint
   - nodes: [Cannock, Burton]
     kind: rail
     comment: verify if this should be both
   - nodes: [Cannock, Tamworth]
     kind: rail
-    comment: confirm if this edge exists
+    comment: verify if this should be both
+  - nodes: [Stafford, Stone]
+    kind: both
+    comment: image-inferred edge; verify era availability
+  - nodes: [Stone, Stoke-on-Trent]
+    kind: both
+    comment: image-inferred edge; verify era availability
+  - nodes: [Stoke-on-Trent, Warrington]
+    kind: canal
+    comment: image-inferred edge; verify era availability
+  - nodes: [Stoke-on-Trent, Leek]
+    kind: both
+    comment: image-inferred edge; verify era availability
+  - nodes: [Stone, Uttoxeter]
+    kind: both
+    comment: image-inferred edge; verify era availability
+  - nodes: [Uttoxeter, Derby]
+    kind: both
+    comment: image-inferred edge; verify era availability
+  - nodes: [Leek, Belper]
+    kind: both
+    comment: image-inferred edge; verify era availability
+  - nodes: [Belper, Derby]
+    kind: both
+    comment: image-inferred edge; verify era availability

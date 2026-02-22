@@ -1,4 +1,4 @@
-import { CITY_DEFS } from "../board/topology";
+import { cityIndustrySlots } from "../board/topology";
 import type { BuildIndustry } from "../actions";
 import type { GameState, TileState } from "../types";
 import { INDUSTRY_LEVEL_TABLE } from "./config";
@@ -50,7 +50,7 @@ function citySupportsIndustry(
   industry: BuildIndustry["industry"],
 ): boolean {
   const label = industry === "coal" ? "Coal" : "Iron";
-  return CITY_DEFS[city].industries.some((allowed) => allowed === label);
+  return cityIndustrySlots(city).some((slot) => slot.includes(label));
 }
 
 function hasUnflippedIndustryTile(

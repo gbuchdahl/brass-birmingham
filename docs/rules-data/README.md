@@ -6,6 +6,8 @@ This directory is the editable source of truth for rules data. Runtime code cons
 
 - `industry-values.yaml`: build costs, resource requirements, cube production, and income-on-flip.
 - `board-topology.yaml`: cities, ports, and edges.
+  - city entries may include `map_zone` to hint UI placement (`northwest`, `north`, `northeast`, `west`, `center`, `east`, `southwest`, `south`, `southeast`).
+  - city `industries` now supports slot options: either a string (`Iron`) or a list (`[Iron, Coal]`) for one slot that allows multiple industries.
 
 ## Entry rules
 
