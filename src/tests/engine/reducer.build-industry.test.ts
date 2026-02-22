@@ -144,7 +144,7 @@ describe("reduce BUILD_INDUSTRY", () => {
   });
 
   it("builds with wild card, consumes and discards card, and logs resource provenance", () => {
-    const state = withSingleCardInHand(createGame(["A", "B"], "build-industry-wild"), "A", WILD_CARD);
+    const state = { ...withSingleCardInHand(createGame(["A", "B"], "build-industry-wild"), "A", WILD_CARD), round: 2 };
     const next = expectOk(reduce(state, buildCoalAction(WILD_CARD.id)));
     const event = next.log[next.log.length - 1];
 
@@ -161,7 +161,7 @@ describe("reduce BUILD_INDUSTRY", () => {
   });
 
   it("builds with location card and applies coal requirement + spend", () => {
-    const state = withSingleCardInHand(createGame(["A", "B"], "build-industry-location"), "A", STAFFORD_LOCATION);
+    const state = { ...withSingleCardInHand(createGame(["A", "B"], "build-industry-location"), "A", STAFFORD_LOCATION), round: 2 };
     const beforeMoney = state.players.A.money;
     const next = expectOk(reduce(state, buildCoalAction(STAFFORD_LOCATION.id)));
     const event = next.log[next.log.length - 1];
@@ -179,7 +179,7 @@ describe("reduce BUILD_INDUSTRY", () => {
   });
 
   it("builds with industry card when connected to network", () => {
-    const base = withSingleCardInHand(createGame(["A", "B"], "build-industry-networked"), "A", COAL_INDUSTRY);
+    const base = { ...withSingleCardInHand(createGame(["A", "B"], "build-industry-networked"), "A", COAL_INDUSTRY), round: 2 };
     const connected = buildLink(base, "A", "Stafford", "Warrington", "canal");
 
     const next = expectOk(reduce(connected, buildCoalAction(COAL_INDUSTRY.id)));
@@ -190,7 +190,7 @@ describe("reduce BUILD_INDUSTRY", () => {
   });
 
   it("builds iron and moves output to market immediately", () => {
-    const state = withSingleCardInHand(createGame(["A", "B"], "build-iron"), "A", WILD_CARD);
+    const state = { ...withSingleCardInHand(createGame(["A", "B"], "build-iron"), "A", WILD_CARD), round: 2 };
     const action = {
       type: "BUILD_INDUSTRY" as const,
       player: "A",

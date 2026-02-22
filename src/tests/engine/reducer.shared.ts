@@ -25,6 +25,8 @@ export function expectInvalid(
   previous: GameState,
   code:
     | "NOT_CURRENT_PLAYER"
+    | "ACTIONS_REMAINING"
+    | "TURN_ACTION_LIMIT_REACHED"
     | "ILLEGAL_LINK_FOR_PHASE"
     | "INSUFFICIENT_RESOURCES"
     | "CARD_NOT_IN_HAND"

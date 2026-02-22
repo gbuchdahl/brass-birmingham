@@ -50,7 +50,7 @@ describe("getLegalMoves", () => {
   });
 
   it("shrinks available link moves after a successful build", () => {
-    const state = createGame(["A", "B"], "legal-moves-shrink");
+    const state = { ...createGame(["A", "B"], "legal-moves-shrink"), round: 2 };
     const initialMoves = getLegalMoves(state, "A");
     expect(initialMoves.length).toBeGreaterThan(0);
 

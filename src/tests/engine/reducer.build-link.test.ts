@@ -5,8 +5,58 @@ import { makeTile, withTiles } from "./helpers";
 import { expectInvalid, expectOk, findEdgeOrThrow } from "./reducer.shared";
 
 describe("reduce BUILD_LINK", () => {
+  it("auto-ends turn after first action in round 1", () => {
+    const state = createGame(["A", "B"], "round1-auto-end");
+    const target = findEdgeOrThrow(state, (edge) => edge.kind === "both" || edge.kind === "canal", "canal/both");
+    const [from, to] = target.nodes;
+
+    const next = expectOk(reduce(state, { type: "BUILD_LINK", player: "A", from, to }));
+    expect(next.currentPlayer).toBe("B");
+    expect(next.actionsTakenThisTurn).toBe(0);
+    expect(next.log[next.log.length - 1]).toMatchObject({ type: "AUTO_END_TURN" });
+  });
+
+  it("requires two actions in round 2 before auto-ending", () => {
+    const base = { ...createGame(["A", "B"], "round2-two-actions"), round: 2 };
+    const firstEdge = findEdgeOrThrow(base, (edge) => edge.kind === "both" || edge.kind === "canal", "first");
+    const secondEdge = findEdgeOrThrow(
+      base,
+      (edge) =>
+        (edge.kind === "both" || edge.kind === "canal") &&
+        !(
+          (edge.nodes[0] === firstEdge.nodes[0] && edge.nodes[1] === firstEdge.nodes[1]) ||
+          (edge.nodes[0] === firstEdge.nodes[1] && edge.nodes[1] === firstEdge.nodes[0])
+        ),
+      "second",
+    );
+
+    const afterFirst = expectOk(
+      reduce(base, { type: "BUILD_LINK", player: "A", from: firstEdge.nodes[0], to: firstEdge.nodes[1] }),
+    );
+    expect(afterFirst.currentPlayer).toBe("A");
+    expect(afterFirst.actionsTakenThisTurn).toBe(1);
+
+    const afterSecond = expectOk(
+      reduce(afterFirst, { type: "BUILD_LINK", player: "A", from: secondEdge.nodes[0], to: secondEdge.nodes[1] }),
+    );
+    expect(afterSecond.currentPlayer).toBe("B");
+    expect(afterSecond.actionsTakenThisTurn).toBe(0);
+    expect(afterSecond.log[afterSecond.log.length - 1]).toMatchObject({ type: "AUTO_END_TURN" });
+  });
+
+  it("rejects third action in round 2", () => {
+    const base = { ...createGame(["A", "B"], "round2-third-action"), round: 2, actionsTakenThisTurn: 2 };
+    const target = findEdgeOrThrow(base, (edge) => edge.kind === "both" || edge.kind === "canal", "canal/both");
+    const [from, to] = target.nodes;
+    expectInvalid(
+      reduce(base, { type: "BUILD_LINK", player: "A", from, to }),
+      base,
+      "TURN_ACTION_LIMIT_REACHED",
+    );
+  });
+
   it("builds a legal canal link and appends a log event", () => {
-    const state = createGame(["A", "B"], "build-link-success");
+    const state = { ...createGame(["A", "B"], "build-link-success"), round: 2 };
     const target = findEdgeOrThrow(state, (edge) => edge.kind === "both" || edge.kind === "canal", "canal/both");
     const [from, to] = target.nodes;
 
@@ -50,7 +100,7 @@ describe("reduce BUILD_LINK", () => {
   });
 
   it("consumes connected coal tile when building a rail link", () => {
-    const base = { ...createGame(["A", "B"], "rail-coal-tile"), phase: "rail" as const };
+    const base = { ...createGame(["A", "B"], "rail-coal-tile"), phase: "rail" as const, round: 2 };
     const state = withTiles(base, {
       "tile-coal-nuneaton": makeTile("tile-coal-nuneaton", {
         city: "Nuneaton",
@@ -75,7 +125,7 @@ describe("reduce BUILD_LINK", () => {
   });
 
   it("uses coal market when no connected coal tile is available", () => {
-    const state = { ...createGame(["A", "B"], "rail-coal-market"), phase: "rail" as const };
+    const state = { ...createGame(["A", "B"], "rail-coal-market"), phase: "rail" as const, round: 2 };
     const marketPrice = coalMarketPrice(state.market.coal.units);
     const target = findEdgeOrThrow(state, (edge) => edge.kind === "rail" || edge.kind === "both", "rail");
     const [from, to] = target.nodes;
@@ -86,7 +136,7 @@ describe("reduce BUILD_LINK", () => {
   });
 
   it("uses fallback coal price when market is empty", () => {
-    const base = { ...createGame(["A", "B"], "rail-coal-fallback"), phase: "rail" as const };
+    const base = { ...createGame(["A", "B"], "rail-coal-fallback"), phase: "rail" as const, round: 2 };
     const state = {
       ...base,
       market: {
@@ -102,7 +152,7 @@ describe("reduce BUILD_LINK", () => {
   });
 
   it("rejects rail build when no coal source is affordable", () => {
-    const base = { ...createGame(["A", "B"], "rail-coal-insufficient"), phase: "rail" as const };
+    const base = { ...createGame(["A", "B"], "rail-coal-insufficient"), phase: "rail" as const, round: 2 };
     const state = {
       ...base,
       market: {
@@ -137,6 +187,7 @@ describe("reduce BUILD_LINK", () => {
         }),
       }),
       phase: "rail" as const,
+      round: 2,
       currentPlayer: "B",
     };
     const target = findEdgeOrThrow(state, (edge) => edge.kind === "rail" && edge.nodes.includes("Nuneaton"), "rail");
@@ -154,7 +205,7 @@ describe("reduce BUILD_LINK", () => {
   });
 
   it("rejects already-built links", () => {
-    const state = createGame(["A", "B"], "duplicate-build");
+    const state = { ...createGame(["A", "B"], "duplicate-build"), round: 2 };
     const target = findEdgeOrThrow(state, (edge) => edge.kind === "both" || edge.kind === "canal", "canal/both");
     const [from, to] = target.nodes;
     const built = expectOk(reduce(state, { type: "BUILD_LINK", player: "A", from, to }));
@@ -168,7 +219,7 @@ describe("reduce BUILD_LINK", () => {
   });
 
   it("accepts reversed from/to order", () => {
-    const state = createGame(["A", "B"], "reverse-order");
+    const state = { ...createGame(["A", "B"], "reverse-order"), round: 2 };
     const target = findEdgeOrThrow(state, (edge) => edge.kind === "both" || edge.kind === "canal", "canal/both");
     const [from, to] = target.nodes;
 

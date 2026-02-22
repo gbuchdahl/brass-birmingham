@@ -58,6 +58,7 @@ export function createGame(
     phase: "canal",
     round: 1,
     turn: 1,
+    actionsTakenThisTurn: 0,
     seatOrder: [...seats],
     currentPlayer: seats[0],
     players,

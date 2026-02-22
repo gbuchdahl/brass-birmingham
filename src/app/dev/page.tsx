@@ -10,6 +10,10 @@ function createInitialState() {
   return createGame(["A", "B", "C", "D"]);
 }
 
+function requiredActionsThisTurn(state: GameState): number {
+  return state.round === 1 ? 1 : 2;
+}
+
 export default function DevPage() {
   const [state, setState] = useState<GameState>(() => createInitialState());
   const [lastResult, setLastResult] = useState<ReduceResult | null>(null);
@@ -21,6 +25,8 @@ export default function DevPage() {
   const [level, setLevel] = useState(1);
 
   const hand = state.players[state.currentPlayer].hand;
+  const requiredActions = requiredActionsThisTurn(state);
+  const actionsRemaining = Math.max(0, requiredActions - state.actionsTakenThisTurn);
 
   useEffect(() => {
     if (hand.length === 0) {
@@ -87,6 +93,9 @@ export default function DevPage() {
           </span>
           <span className="rounded bg-gray-100 px-2 py-1 dark:bg-neutral-900">
             Phase: {state.phase}
+          </span>
+          <span className="rounded bg-gray-100 px-2 py-1 dark:bg-neutral-900">
+            Actions: {state.actionsTakenThisTurn}/{requiredActions}
           </span>
           <button
             className="rounded border border-gray-300 px-3 py-1 hover:bg-gray-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
@@ -197,10 +206,16 @@ export default function DevPage() {
             <p className="mb-2 text-sm font-medium">Turn</p>
             <button
               className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+              disabled={actionsRemaining > 0}
               onClick={() => dispatch({ type: "END_TURN", player: state.currentPlayer })}
             >
               End Turn
             </button>
+            {actionsRemaining > 0 ? (
+              <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                {actionsRemaining} action(s) remaining this turn.
+              </p>
+            ) : null}
           </div>
         </div>
 

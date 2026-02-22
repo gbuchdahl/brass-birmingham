@@ -69,6 +69,7 @@ export type GameState = {
   phase: EraKind;
   round: number;
   turn: number;
+  actionsTakenThisTurn: number;
   seatOrder: PlayerId[];
   currentPlayer: PlayerId;
   players: Record<PlayerId, PlayerState>;

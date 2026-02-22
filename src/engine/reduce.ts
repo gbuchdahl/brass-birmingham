@@ -7,6 +7,8 @@ import { resolveCoal } from "./rules/resources";
 
 export type ReduceErrorCode =
   | "NOT_CURRENT_PLAYER"
+  | "ACTIONS_REMAINING"
+  | "TURN_ACTION_LIMIT_REACHED"
   | "ILLEGAL_LINK_FOR_PHASE"
   | "INSUFFICIENT_RESOURCES"
   | "CARD_NOT_IN_HAND"
@@ -70,6 +72,47 @@ function invalid(
   };
 }
 
+function requiredActionsThisTurn(state: GameState): number {
+  return state.round === 1 ? 1 : 2;
+}
+
+function incrementActionsTaken(state: GameState): GameState {
+  return {
+    ...state,
+    actionsTakenThisTurn: state.actionsTakenThisTurn + 1,
+  };
+}
+
+function advanceTurn(state: GameState, player: PlayerId, auto: boolean): GameState {
+  const order = state.seatOrder;
+  const i = order.indexOf(state.currentPlayer);
+  const wrapped = i === order.length - 1;
+  const next = order[(i + 1) % order.length];
+  return {
+    ...state,
+    turn: state.turn + 1,
+    round: wrapped ? state.round + 1 : state.round,
+    actionsTakenThisTurn: 0,
+    currentPlayer: next,
+    log: [
+      ...state.log,
+      {
+        idx: state.log.length,
+        type: auto ? "AUTO_END_TURN" : "END_TURN",
+        data: { from: player, to: next, round: state.round, actionsTaken: state.actionsTakenThisTurn },
+      },
+    ],
+  };
+}
+
+function finalizeAction(state: GameState, player: PlayerId): GameState {
+  const withActions = incrementActionsTaken(state);
+  if (withActions.actionsTakenThisTurn >= requiredActionsThisTurn(withActions)) {
+    return advanceTurn(withActions, player, true);
+  }
+  return withActions;
+}
+
 export function reduce(state: GameState, action: Action): ReduceResult {
   const entryInvariant = assertAllTileInvariants(state);
   if (entryInvariant) {
@@ -87,23 +130,16 @@ export function reduce(state: GameState, action: Action): ReduceResult {
           "Only the current player can end the turn.",
         );
       }
-      const order = state.seatOrder;
-      const i = order.indexOf(state.currentPlayer);
-      const next = order[(i + 1) % order.length];
+      if (state.actionsTakenThisTurn < requiredActionsThisTurn(state)) {
+        return invalid(
+          state,
+          action,
+          "ACTIONS_REMAINING",
+          "This turn still has required actions remaining.",
+        );
+      }
 
-      return ok({
-        ...state,
-        turn: state.turn + 1,
-        currentPlayer: next,
-        log: [
-          ...state.log,
-          {
-            idx: state.log.length,
-            type: "END_TURN",
-            data: { from: action.player, to: next },
-          },
-        ],
-      });
+      return ok(advanceTurn(state, action.player, false));
     }
     case "BUILD_LINK": {
       if (action.player !== state.currentPlayer) {
@@ -112,6 +148,15 @@ export function reduce(state: GameState, action: Action): ReduceResult {
           action,
           "NOT_CURRENT_PLAYER",
           "Only the current player can build a link.",
+        );
+      }
+
+      if (state.actionsTakenThisTurn >= requiredActionsThisTurn(state)) {
+        return invalid(
+          state,
+          action,
+          "TURN_ACTION_LIMIT_REACHED",
+          "This turn has already used all available actions.",
         );
       }
 
@@ -180,7 +225,7 @@ export function reduce(state: GameState, action: Action): ReduceResult {
       if (exitInvariant) {
         return invalid(successState, action, exitInvariant.code, exitInvariant.message);
       }
-      return ok(successState);
+      return ok(finalizeAction(successState, action.player));
     }
     case "BUILD_INDUSTRY": {
       if (action.player !== state.currentPlayer) {
@@ -189,6 +234,14 @@ export function reduce(state: GameState, action: Action): ReduceResult {
           action,
           "NOT_CURRENT_PLAYER",
           "Only the current player can build an industry.",
+        );
+      }
+      if (state.actionsTakenThisTurn >= requiredActionsThisTurn(state)) {
+        return invalid(
+          state,
+          action,
+          "TURN_ACTION_LIMIT_REACHED",
+          "This turn has already used all available actions.",
         );
       }
 
@@ -228,7 +281,7 @@ export function reduce(state: GameState, action: Action): ReduceResult {
       if (exitInvariant) {
         return invalid(successState, action, exitInvariant.code, exitInvariant.message);
       }
-      return ok(successState);
+      return ok(finalizeAction(successState, action.player));
     }
 
     default:

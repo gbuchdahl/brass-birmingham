@@ -15,15 +15,38 @@ describe("reduce END_TURN", () => {
   });
 
   it("cycles to the next player on END_TURN", () => {
-    const state = createGame(["A", "B", "C"]);
+    const base = createGame(["A", "B", "C"]);
+    const state = { ...base, actionsTakenThisTurn: 1 };
     const next = expectOk(reduce(state, { type: "END_TURN", player: state.currentPlayer }));
 
     expect(next.currentPlayer).toBe("B");
     expect(next.turn).toBe(state.turn + 1);
+    expect(next.round).toBe(state.round);
     expect(next.log[next.log.length - 1]).toMatchObject({
       type: "END_TURN",
       data: { from: "A", to: "B" },
     });
+  });
+
+  it("increments round when turn wraps back to seat 0", () => {
+    const base = createGame(["A", "B"], "wrap-round");
+    const state = {
+      ...base,
+      currentPlayer: "B",
+      actionsTakenThisTurn: 1,
+    };
+    const next = expectOk(reduce(state, { type: "END_TURN", player: "B" }));
+    expect(next.currentPlayer).toBe("A");
+    expect(next.round).toBe(state.round + 1);
+  });
+
+  it("rejects END_TURN if required actions are not completed", () => {
+    const state = createGame(["A", "B"]);
+    expectInvalid(
+      reduce(state, { type: "END_TURN", player: state.currentPlayer }),
+      state,
+      "ACTIONS_REMAINING",
+    );
   });
 
   it("rejects END_TURN from the wrong player", () => {
