@@ -67,7 +67,8 @@ describe("getLegalMoves", () => {
     }
     const nextMoves = getLegalMoves(result.state, "A");
 
-    expect(nextMoves.length).toBe(initialMoves.length - 1);
+    expect(nextMoves.length).toBeLessThan(initialMoves.length);
+    expect(nextMoves.length).toBeGreaterThan(0);
     expect(
       nextMoves.some(
         (move) =>
@@ -76,5 +77,15 @@ describe("getLegalMoves", () => {
             (move.from === first.to && move.to === first.from)),
       ),
     ).toBe(false);
+    expect(
+      nextMoves.every(
+        (move) =>
+          move.type === "BUILD_LINK" &&
+          (move.from === first.from ||
+            move.from === first.to ||
+            move.to === first.from ||
+            move.to === first.to),
+      ),
+    ).toBe(true);
   });
 });

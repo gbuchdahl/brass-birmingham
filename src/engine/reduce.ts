@@ -1,6 +1,6 @@
 import type { Action } from "./actions";
 import type { GameState, PlayerId } from "./types";
-import { buildLink, isLegalLink } from "./board/api";
+import { buildLink, isLegalPlayerLinkBuild } from "./board/api";
 import { applyBuildIndustry } from "./rules/build";
 import { assertAllTileInvariants } from "./rules/invariants";
 import { resolveCoal } from "./rules/resources";
@@ -161,12 +161,12 @@ export function reduce(state: GameState, action: Action): ReduceResult {
       }
 
       const era = state.phase;
-      if (!isLegalLink(state, action.from, action.to, era)) {
+      if (!isLegalPlayerLinkBuild(state, action.player, action.from, action.to, era)) {
         return invalid(
           state,
           action,
           "ILLEGAL_LINK_FOR_PHASE",
-          "That link is not buildable in the current phase.",
+          "That link is not buildable from your network in the current phase.",
         );
       }
 

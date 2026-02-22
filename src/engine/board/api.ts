@@ -35,6 +35,49 @@ export function isLegalLink(
   return !state.board.linkStates[idx].builtBy;
 }
 
+function playerNetworkNodes(state: GameState, player: PlayerId): Set<NodeId> {
+  const nodes = new Set<NodeId>();
+
+  state.board.topology.edges.forEach((edge, index) => {
+    if (state.board.linkStates[index].builtBy !== player) {
+      return;
+    }
+    nodes.add(edge.nodes[0]);
+    nodes.add(edge.nodes[1]);
+  });
+
+  Object.values(state.board.tiles).forEach((tile) => {
+    if (tile.owner === player) {
+      nodes.add(tile.city);
+    }
+  });
+
+  return nodes;
+}
+
+export function hasBoardPresence(state: GameState, player: PlayerId): boolean {
+  return playerNetworkNodes(state, player).size > 0;
+}
+
+export function isLegalPlayerLinkBuild(
+  state: GameState,
+  player: PlayerId,
+  a: NodeId,
+  b: NodeId,
+  era: EraKind,
+): boolean {
+  if (!isLegalLink(state, a, b, era)) {
+    return false;
+  }
+
+  const network = playerNetworkNodes(state, player);
+  if (network.size === 0) {
+    return true;
+  }
+
+  return network.has(a) || network.has(b);
+}
+
 export function buildLink(
   state: GameState,
   player: PlayerId,
