@@ -1,8 +1,24 @@
 import { CITY_DEFS } from "../board/topology";
 import type { BuildIndustry } from "../actions";
 import type { GameState, TileState } from "../types";
-import { INDUSTRY_PLACEHOLDER_TABLE } from "./config";
-import { moveCoalToMarket, moveIronToMarket } from "./resources";
+import { INDUSTRY_LEVEL_TABLE } from "./config";
+import { consumeCardFromHand, validateBuildCard } from "./cards";
+import {
+  moveCoalToMarket,
+  moveIronToMarket,
+  resolveCoal,
+  resolveIron,
+  type CoalSource,
+  type IronSource,
+} from "./resources";
+
+type BuildFailureCode =
+  | "ILLEGAL_INDUSTRY_BUILD"
+  | "CARD_NOT_IN_HAND"
+  | "INVALID_BUILD_CARD"
+  | "CARD_DOES_NOT_ALLOW_BUILD"
+  | "BUILD_NOT_CONNECTED_FOR_CARD"
+  | "INSUFFICIENT_RESOURCES";
 
 export type ApplyBuildIndustryResult =
   | {
@@ -14,10 +30,18 @@ export type ApplyBuildIndustryResult =
       flipped: boolean;
       incomeDelta: number;
       buildCost: number;
+      cardId: string;
+      cardKind: "Location" | "Industry" | "Wild";
+      discardedCardId: string;
+      resourceSpend: number;
+      resourceSources: {
+        coal: { required: number; sources: CoalSource[]; spend: number };
+        iron: { required: number; sources: IronSource[]; spend: number };
+      };
     }
   | {
       ok: false;
-      code: "ILLEGAL_INDUSTRY_BUILD";
+      code: BuildFailureCode;
       message: string;
     };
 
@@ -43,14 +67,15 @@ export function applyBuildIndustry(
   state: GameState,
   action: BuildIndustry,
 ): ApplyBuildIndustryResult {
-  const config = INDUSTRY_PLACEHOLDER_TABLE[action.industry][action.level as 1];
-  if (!config) {
+  const levelConfig = INDUSTRY_LEVEL_TABLE[action.industry][action.level];
+  if (!levelConfig) {
     return {
       ok: false,
       code: "ILLEGAL_INDUSTRY_BUILD",
-      message: "Unsupported industry level for this placeholder milestone.",
+      message: "Unsupported industry level for this milestone.",
     };
   }
+
   if (!citySupportsIndustry(action.city, action.industry)) {
     return {
       ok: false,
@@ -58,6 +83,7 @@ export function applyBuildIndustry(
       message: "That industry cannot be built in the selected city.",
     };
   }
+
   if (hasUnflippedIndustryTile(state, action.city, action.industry)) {
     return {
       ok: false,
@@ -65,39 +91,70 @@ export function applyBuildIndustry(
       message: "An unflipped tile of that industry already exists in the city.",
     };
   }
-  if (state.players[action.player].money < config.buildCost) {
+
+  const cardValidation = validateBuildCard(state, action);
+  if (!cardValidation.ok) {
+    return cardValidation;
+  }
+
+  if (state.players[action.player].money < levelConfig.money) {
     return {
       ok: false,
       code: "ILLEGAL_INDUSTRY_BUILD",
-      message: "Not enough money to build this industry tile.",
+      message: "Not enough money to pay the base build cost.",
     };
   }
 
-  const tileId = `tile-${action.industry}-${state.log.length}`;
+  let workingState = state;
+
+  const coalResolution = resolveCoal(workingState, action.player, {
+    requiredUnits: levelConfig.coalRequired,
+    connectedTo: [action.city],
+  });
+  if (!coalResolution.ok) {
+    return coalResolution;
+  }
+  workingState = coalResolution.state;
+
+  const ironResolution = resolveIron(workingState, action.player, {
+    requiredUnits: levelConfig.ironRequired,
+  });
+  if (!ironResolution.ok) {
+    return ironResolution;
+  }
+  workingState = ironResolution.state;
+
+  const afterCosts: GameState = {
+    ...workingState,
+    players: {
+      ...workingState.players,
+      [action.player]: {
+        ...workingState.players[action.player],
+        money: workingState.players[action.player].money - levelConfig.money,
+      },
+    },
+  };
+
+  const afterCard = consumeCardFromHand(afterCosts, action.player, action.cardId);
+
+  const tileId = `tile-${action.industry}-${afterCard.log.length}`;
   const placedTile: TileState = {
     id: tileId,
     city: action.city,
     industry: action.industry,
     owner: action.player,
     level: action.level,
-    resourcesRemaining: config.cubesProduced,
-    incomeOnFlip: config.incomeOnFlip,
-    flipped: config.cubesProduced === 0,
+    resourcesRemaining: levelConfig.cubesProduced,
+    incomeOnFlip: levelConfig.incomeOnFlip,
+    flipped: levelConfig.cubesProduced === 0,
   };
 
   const afterPlacement: GameState = {
-    ...state,
-    players: {
-      ...state.players,
-      [action.player]: {
-        ...state.players[action.player],
-        money: state.players[action.player].money - config.buildCost,
-      },
-    },
+    ...afterCard,
     board: {
-      ...state.board,
+      ...afterCard.board,
       tiles: {
-        ...state.board.tiles,
+        ...afterCard.board.tiles,
         [tileId]: placedTile,
       },
     },
@@ -107,6 +164,7 @@ export function applyBuildIndustry(
     action.industry === "coal"
       ? moveCoalToMarket(afterPlacement, tileId)
       : moveIronToMarket(afterPlacement, tileId);
+
   const tileAfterMove = moved.state.board.tiles[tileId];
 
   return {
@@ -117,6 +175,22 @@ export function applyBuildIndustry(
     resourcesRemaining: tileAfterMove.resourcesRemaining,
     flipped: tileAfterMove.flipped,
     incomeDelta: moved.incomeDelta,
-    buildCost: config.buildCost,
+    buildCost: levelConfig.money,
+    cardId: action.cardId,
+    cardKind: cardValidation.cardKind,
+    discardedCardId: action.cardId,
+    resourceSpend: coalResolution.spend + ironResolution.spend,
+    resourceSources: {
+      coal: {
+        required: levelConfig.coalRequired,
+        sources: coalResolution.sources,
+        spend: coalResolution.spend,
+      },
+      iron: {
+        required: levelConfig.ironRequired,
+        sources: ironResolution.sources,
+        spend: ironResolution.spend,
+      },
+    },
   };
 }

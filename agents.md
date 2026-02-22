@@ -82,3 +82,8 @@ Use this guide when navigating or extending the codebase so each agent understan
 - Keep reducers pure and exhaustively switch over `Action` unions—TypeScript will enforce via `never` guard.
 - For Brass: Birmingham rules questions, always consult RulesPal first: https://www.rulespal.com/brass-birmingham/rulebook
 - Remaining debt: decide whether invalid actions should be surfaced in a dedicated UI/errors channel in addition to engine logs.
+- Rules data workflow:
+  - Source-of-truth editable files live in `docs/rules-data/` (`industry-values.yaml`, `board-topology.yaml`).
+  - Generated runtime artifacts live in `src/engine/rules/generated/industry-values.ts` and `src/engine/board/generated/topology.ts`.
+  - After editing YAML, run `pnpm rules:generate` before tests.
+  - Runtime engine code should import generated TS artifacts, not YAML directly.

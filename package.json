@@ -7,7 +7,10 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "rules:generate:industry": "node scripts/rules/build-industry-data.mjs",
+    "rules:generate:board": "node scripts/rules/build-board-topology.mjs",
+    "rules:generate": "pnpm rules:generate:industry && pnpm rules:generate:board"
   },
   "dependencies": {
     "next": "15.5.3",
@@ -25,6 +28,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "yaml": "^2.8.2"
   }
 }

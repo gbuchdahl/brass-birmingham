@@ -1,33 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { createGame, reduce } from "@/engine";
+import { withSingleCardInHand } from "@/tests/engine/helpers";
 
 describe("invariants", () => {
   it("keeps tile flip/resource states consistent", () => {
-    const base = createGame(["A", "B"], "invariant-flip-state");
-    const withTile = {
-      ...base,
-      phase: "rail" as const,
-      board: {
-        ...base.board,
-        tiles: {
-          "tile-coal-nuneaton": {
-            id: "tile-coal-nuneaton",
-            city: "Nuneaton",
-            industry: "coal" as const,
-            owner: "A",
-            level: 1,
-            resourcesRemaining: 1,
-            incomeOnFlip: 1,
-            flipped: false,
-          },
-        },
-      },
-    };
-    const result = reduce(withTile, {
-      type: "BUILD_LINK",
+    const state = withSingleCardInHand(createGame(["A", "B"], "invariant-industry-build"), "A", {
+      id: "wild",
+      kind: "Wild",
+    });
+
+    const result = reduce(state, {
+      type: "BUILD_INDUSTRY",
       player: "A",
-      from: "Coventry",
-      to: "Nuneaton",
+      city: "Stafford",
+      industry: "coal",
+      level: 1,
+      cardId: "wild",
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -40,5 +28,41 @@ describe("invariants", () => {
         expect(tile.flipped).toBe(false);
       }
     }
+  });
+
+  it("preserves card-zone conservation after BUILD_INDUSTRY", () => {
+    const state = withSingleCardInHand(createGame(["A", "B"], "invariant-card-zones"), "A", {
+      id: "wild-2",
+      kind: "Wild",
+    });
+
+    const cardIdsBefore = new Set<string>([
+      ...state.players.A.hand,
+      ...state.players.B.hand,
+      ...state.deck.draw,
+      ...state.deck.discard,
+      ...state.deck.removed,
+    ]);
+
+    const result = reduce(state, {
+      type: "BUILD_INDUSTRY",
+      player: "A",
+      city: "Stafford",
+      industry: "coal",
+      level: 1,
+      cardId: "wild-2",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const cardIdsAfter = new Set<string>([
+      ...result.state.players.A.hand,
+      ...result.state.players.B.hand,
+      ...result.state.deck.draw,
+      ...result.state.deck.discard,
+      ...result.state.deck.removed,
+    ]);
+
+    expect(cardIdsAfter).toEqual(cardIdsBefore);
   });
 });

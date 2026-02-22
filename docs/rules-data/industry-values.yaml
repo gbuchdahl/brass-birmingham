@@ -1,0 +1,24 @@
+meta:
+  source_primary: "https://www.rulespal.com/brass-birmingham/rulebook"
+  source_secondary: "https://cdn.shopify.com/s/files/1/0246/2190/8043/files/Brass-Birmingham-Rulebook.pdf?v=1741712309"
+  notes: "TODO(brass-rules): Placeholder values until exact board values are entered."
+
+industries:
+  coal:
+    levels:
+      "1":
+        money_cost: 6
+        coal_required: 1
+        iron_required: 0
+        cubes_produced: 2
+        income_on_flip: 2
+        source_note: "PLACEHOLDER"
+  iron:
+    levels:
+      "1":
+        money_cost: 5
+        coal_required: 0
+        iron_required: 1
+        cubes_produced: 1
+        income_on_flip: 1
+        source_note: "PLACEHOLDER"

@@ -7,6 +7,16 @@ export type EraKind = "canal" | "rail";
 export type ResourceKind = "coal" | "iron";
 export type IndustryKind = ResourceKind;
 export type TileInvariantError = "INVALID_TILE_FLIP_STATE";
+export type BuildCostSpec = {
+  money: number;
+  coalRequired: number;
+  ironRequired: number;
+};
+export type ProductionSpec = {
+  cubesProduced: number;
+  incomeOnFlip: number;
+};
+export type IndustryLevelSpec = BuildCostSpec & ProductionSpec;
 
 export type GameEvent = {
   idx: number;

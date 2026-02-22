@@ -1,3 +1,6 @@
+import type { IndustryLevelSpec } from "../types";
+import { INDUSTRY_LEVEL_DATA } from "./generated/industry-values";
+
 export const HAND_SIZE_BY_PLAYER_COUNT: Record<number, number> = {
   2: 8,
   3: 8,
@@ -14,22 +17,10 @@ export const MAX_COAL_MARKET_UNITS = 14;
 export const MAX_IRON_MARKET_UNITS = 9;
 
 // TODO(brass-rules): Placeholder/bullshit values. Replace with exact board/rulebook data.
-export const INDUSTRY_PLACEHOLDER_TABLE = {
-  coal: {
-    1: {
-      buildCost: 6,
-      cubesProduced: 2,
-      incomeOnFlip: 2,
-    },
-  },
-  iron: {
-    1: {
-      buildCost: 5,
-      cubesProduced: 1,
-      incomeOnFlip: 1,
-    },
-  },
-} as const;
+export const INDUSTRY_LEVEL_TABLE = INDUSTRY_LEVEL_DATA as Record<
+  "coal" | "iron",
+  Record<number, IndustryLevelSpec & { sourceNote: string }>
+>;
 
 function dynamicMarketPrice(
   unitsLeft: number,

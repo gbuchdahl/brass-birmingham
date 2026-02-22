@@ -1,5 +1,6 @@
 import type { CityId, NodeId } from "./board/topology";
 import type { IndustryKind, PlayerId } from "./types";
+import type { CardId } from "./cards";
 
 export type EndTurn = { type: "END_TURN"; player: PlayerId };
 export type BuildLink = {
@@ -15,6 +16,7 @@ export type BuildIndustry = {
   city: CityId;
   industry: IndustryKind;
   level: number;
+  cardId: CardId;
 };
 
 export type Action = EndTurn | BuildLink | BuildIndustry;

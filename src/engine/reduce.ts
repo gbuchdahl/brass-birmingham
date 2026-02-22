@@ -9,6 +9,10 @@ export type ReduceErrorCode =
   | "NOT_CURRENT_PLAYER"
   | "ILLEGAL_LINK_FOR_PHASE"
   | "INSUFFICIENT_RESOURCES"
+  | "CARD_NOT_IN_HAND"
+  | "INVALID_BUILD_CARD"
+  | "CARD_DOES_NOT_ALLOW_BUILD"
+  | "BUILD_NOT_CONNECTED_FOR_CARD"
   | "INVALID_TILE_FLIP_STATE"
   | "ILLEGAL_INDUSTRY_BUILD"
   | "UNKNOWN_ACTION";
@@ -205,12 +209,17 @@ export function reduce(state: GameState, action: Action): ReduceResult {
               city: action.city,
               industry: action.industry,
               level: action.level,
+              cardId: built.cardId,
+              cardKind: built.cardKind,
+              discardedCardId: built.discardedCardId,
               tileId: built.tileId,
               marketMoved: built.marketMoved,
               resourcesRemaining: built.resourcesRemaining,
               flipped: built.flipped,
               incomeDelta: built.incomeDelta,
               buildCost: built.buildCost,
+              resourceSpend: built.resourceSpend,
+              resourceSources: built.resourceSources,
             },
           },
         ],

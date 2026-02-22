@@ -1,4 +1,5 @@
 import type { CityId } from "@/engine/board/topology";
+import type { Card } from "@/engine/cards/types";
 import type { GameState, IndustryKind, TileState } from "@/engine/types";
 
 type TileOverrides = Partial<TileState> & {
@@ -29,6 +30,31 @@ export function withTiles(
     board: {
       ...state.board,
       tiles,
+    },
+  };
+}
+
+export function withSingleCardInHand(
+  state: GameState,
+  player: string,
+  card: Card,
+): GameState {
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [player]: {
+        ...state.players[player],
+        hand: [card.id],
+      },
+    },
+    deck: {
+      ...state.deck,
+      byId: {
+        ...state.deck.byId,
+        [card.id]: card,
+      },
+      discard: [],
     },
   };
 }
