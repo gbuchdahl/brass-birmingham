@@ -5,6 +5,67 @@ import { makeTile, withTiles } from "./helpers";
 import { expectInvalid, expectOk, findEdgeOrThrow } from "./reducer.shared";
 
 describe("reduce BUILD_LINK", () => {
+  it("allows remote first link when player has no board presence", () => {
+    const state = createGame(["A", "B"], "no-presence-remote-link");
+    const target = findEdgeOrThrow(
+      state,
+      (edge) => edge.kind === "both" || edge.kind === "canal",
+      "remote first link",
+    );
+    const [from, to] = target.nodes;
+
+    const next = expectOk(reduce(state, { type: "BUILD_LINK", player: "A", from, to }));
+    expect(next.log.some((event) => event.type === "BUILD_LINK")).toBe(true);
+  });
+
+  it("rejects remote link once player has board presence", () => {
+    const state = withTiles(createGame(["A", "B"], "presence-remote-link"), {
+      "tile-coal-stafford": makeTile("tile-coal-stafford", {
+        city: "Stafford",
+        industry: "coal",
+        owner: "A",
+      }),
+    });
+    const target = findEdgeOrThrow(
+      state,
+      (edge) =>
+        (edge.kind === "both" || edge.kind === "canal") &&
+        !edge.nodes.includes("Stafford"),
+      "non-adjacent link",
+    );
+    const [from, to] = target.nodes;
+
+    expectInvalid(
+      reduce(state, { type: "BUILD_LINK", player: "A", from, to }),
+      state,
+      "ILLEGAL_LINK_FOR_PHASE",
+    );
+  });
+
+  it("allows adjacent link when player has board presence", () => {
+    const state = { ...createGame(["A", "B"], "presence-adjacent-link"), round: 2 };
+    const withPresence = withTiles(state, {
+      "tile-coal-stafford": makeTile("tile-coal-stafford", {
+        city: "Stafford",
+        industry: "coal",
+        owner: "A",
+      }),
+    });
+    const target = findEdgeOrThrow(
+      withPresence,
+      (edge) =>
+        (edge.kind === "both" || edge.kind === "canal") &&
+        edge.nodes.includes("Stafford"),
+      "adjacent link",
+    );
+    const [from, to] = target.nodes;
+
+    const next = expectOk(
+      reduce(withPresence, { type: "BUILD_LINK", player: "A", from, to }),
+    );
+    expect(next.log.some((event) => event.type === "BUILD_LINK")).toBe(true);
+  });
+
   it("auto-ends turn after first action in round 1", () => {
     const state = createGame(["A", "B"], "round1-auto-end");
     const target = findEdgeOrThrow(state, (edge) => edge.kind === "both" || edge.kind === "canal", "canal/both");
