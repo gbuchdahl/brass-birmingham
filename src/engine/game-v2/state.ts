@@ -202,8 +202,9 @@ function deriveSubSeed(seed: string, purpose: string): string {
 }
 
 function deriveGameId(seed: string, seats: readonly string[]): string {
+  const stableSeats = [...seats].sort();
   const identityState = createRandomState(
-    JSON.stringify(["brass-birmingham-game-v2", "game-id", seed, seats]),
+    JSON.stringify(["brass-birmingham-game-v2", "game-id", seed, stableSeats]),
   );
   return `${RULESET_META.id}-${identityState.value.toString(16).padStart(8, "0")}`;
 }

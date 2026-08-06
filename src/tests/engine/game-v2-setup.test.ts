@@ -106,6 +106,19 @@ describe("GameStateV2 deterministic setup", () => {
     expect(first.setupSeeds.random).not.toBe(first.setupSeeds.cards);
   });
 
+  it("keeps game identity valid when turn order changes between rounds", () => {
+    const initial = createGameV2(["alice", "bob", "carol"], "stable-game-id");
+    const reordered: GameStateV2 = {
+      ...structuredClone(initial),
+      turnOrder: ["carol", "alice", "bob"],
+      currentSeat: "carol",
+      roundSpend: { carol: 0, alice: 0, bob: 0 },
+    };
+
+    expect(reordered.gameId).toBe(initial.gameId);
+    expect(validateGameStateV2(reordered)).toMatchObject({ ok: true });
+  });
+
   it("does not share player, inventory, stack, or removed-zone references", () => {
     const state = createGameV2(["alice", "bob", "carol"], "isolated-players");
     const alice = state.players.alice;
