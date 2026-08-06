@@ -153,6 +153,17 @@ export {
   type ScoutActionState,
 } from "./actions-v2/scout";
 export {
+  developAction,
+  type DevelopActionEffect,
+  type DevelopActionError,
+  type DevelopActionErrorCode,
+  type DevelopActionResult,
+  type DevelopActionSelection,
+  type DevelopActionState,
+  type DevelopBoardIronEffect,
+  type DevelopIronIndustryState,
+} from "./actions-v2/develop";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
