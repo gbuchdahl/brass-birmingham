@@ -184,6 +184,21 @@ export {
   type SellableIndustryKind,
 } from "./actions-v2/sell";
 export {
+  executeBuildAction,
+  type BuildActionEffect,
+  type BuildActionError,
+  type BuildActionErrorCode,
+  type BuildActionResult,
+  type BuildActionSelection,
+  type BuildActionState,
+  type BuildCoalChoice,
+  type BuildEra,
+  type BuildIronChoice,
+  type BuildPlayerCount,
+  type BuildResourceEffect,
+  type BuiltIndustryState,
+} from "./actions-v2/build";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
