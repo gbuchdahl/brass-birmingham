@@ -48,6 +48,20 @@ export {
   type RoundSpendLedger,
 } from "./lifecycle";
 export {
+  INDUSTRY_INVENTORY_SCHEMA_VERSION,
+  createIndustryInventory,
+  developIndustryTiles,
+  getLowestIndustryTileId,
+  getNextBuildableIndustryTileId,
+  removeBuiltIndustryTile,
+  type DevelopIndustryTilesResult,
+  type IndustryEra,
+  type IndustryInventory,
+  type IndustryInventoryError,
+  type IndustryInventoryErrorCode,
+  type RemoveBuiltTileResult,
+} from "./player-v2";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
