@@ -127,6 +127,23 @@ export {
   type PassActionState,
 } from "./actions-v2/pass";
 export {
+  executeNetworkAction,
+  planNetworkAction,
+  type NetworkActionEffect,
+  type NetworkActionError,
+  type NetworkActionErrorCode,
+  type NetworkActionPlanResult,
+  type NetworkActionResult,
+  type NetworkActionSelection,
+  type NetworkActionState,
+  type NetworkBeerEffect,
+  type NetworkCoalChoice,
+  type NetworkCoalEffect,
+  type NetworkEra,
+  type NetworkIndustryKind,
+  type NetworkIndustryState,
+} from "./actions-v2/network";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
