@@ -4,6 +4,8 @@ This directory is the editable source of truth for rules data. Runtime code cons
 
 ## Files to edit
 
+- `ruleset.yaml`, `markets.yaml`, and `setup.yaml`: versioned ruleset, market tracks, and player-count setup.
+- `cards.yaml`: exact location/industry card distribution and separate wild-card supply.
 - `industry-values.yaml`: build costs, resource requirements, cube production, and income-on-flip.
 - `board-topology.yaml`: cities, ports, and edges.
 
@@ -22,6 +24,8 @@ pnpm rules:generate
 
 This updates:
 
+- `src/engine/rules/generated/ruleset.ts`
+- `src/engine/rules/generated/cards.ts`
 - `src/engine/rules/generated/industry-values.ts`
 - `src/engine/board/generated/topology.ts`
 
