@@ -31,11 +31,14 @@ export { createGame } from "./state/create";
 export {
   CANAL_SETUP_SCHEMA_VERSION,
   MERCHANT_SETUP_SCHEMA_VERSION,
+  RAIL_SETUP_SCHEMA_VERSION,
   createCanalSetup,
   createMerchantSetup,
+  createRailSetup,
   type CanalSetupResult,
   type MerchantSetupResult,
   type MerchantSpaceSetup,
+  type RailSetupResult,
   type SeatId,
   type SupportedPlayerCount,
 } from "./setup-v2";
