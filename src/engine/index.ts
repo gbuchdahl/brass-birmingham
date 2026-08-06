@@ -167,6 +167,23 @@ export {
   type DevelopIronIndustryState,
 } from "./actions-v2/develop";
 export {
+  sellAction,
+  type SellActionEffect,
+  type SellActionError,
+  type SellActionErrorCode,
+  type SellActionResult,
+  type SellActionSelection,
+  type SellActionState,
+  type SellBeerEffect,
+  type SellBeerSelection,
+  type SellIndustryState,
+  type SellMerchantBonusEffect,
+  type SellMerchantSpaceState,
+  type SellTileEffect,
+  type SellTileSelection,
+  type SellableIndustryKind,
+} from "./actions-v2/sell";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
