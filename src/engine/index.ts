@@ -30,8 +30,12 @@ export type { ReduceError, ReduceErrorCode, ReduceResult } from "./reduce";
 export { createGame } from "./state/create";
 export {
   CANAL_SETUP_SCHEMA_VERSION,
+  MERCHANT_SETUP_SCHEMA_VERSION,
   createCanalSetup,
+  createMerchantSetup,
   type CanalSetupResult,
+  type MerchantSetupResult,
+  type MerchantSpaceSetup,
   type SeatId,
   type SupportedPlayerCount,
 } from "./setup-v2";
