@@ -1,6 +1,16 @@
 export type { GameState, PlayerId } from "./types";
 export type { Action } from "./actions";
 export {
+  WILD_INDUSTRY_CARD_ID,
+  WILD_LOCATION_CARD_ID,
+  discardActionCard,
+  refillHand,
+  scout,
+  type CardZones,
+  type PlayableCardId,
+  type WildCardId,
+} from "./cards-v2";
+export {
   COMMAND_SCHEMA_VERSION,
   executeCommand,
   replayCommands,

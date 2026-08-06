@@ -1,4 +1,5 @@
 import type { RulesPhysicalCardId } from "../rules/generated/cards";
+import type { PlayableCardId } from "../cards-v2/types";
 
 export const CANAL_SETUP_SCHEMA_VERSION = 1 as const;
 
@@ -14,7 +15,7 @@ export type CanalSetupResult = {
   era: "canal";
   seed: string;
   seats: SeatId[];
-  hands: Record<SeatId, RulesPhysicalCardId[]>;
+  hands: Record<SeatId, PlayableCardId[]>;
   draw: RulesPhysicalCardId[];
   /**
    * During initial setup, discard[i] is the face-down card assigned to
