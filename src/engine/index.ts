@@ -74,6 +74,15 @@ export {
   type RoundIncomeSettlementInput,
 } from "./economy/income";
 export {
+  createResourceMarketState,
+  purchaseFromResourceMarket,
+  sellToResourceMarket,
+  type ResourceMarketKind,
+  type ResourceMarketPurchase,
+  type ResourceMarketSale,
+  type ResourceMarketState,
+} from "./economy/markets";
+export {
   takeLoan,
   type LoanActionEffect,
   type LoanActionError,
