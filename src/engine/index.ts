@@ -199,6 +199,19 @@ export {
   type BuiltIndustryState,
 } from "./actions-v2/build";
 export {
+  GAME_STATE_V2_SCHEMA_VERSION,
+  createGameV2,
+  validateGameStateV2,
+  type GameEraV2,
+  type GameEventV2,
+  type GameStateV2,
+  type GameStateV2ValidationError,
+  type GameStateV2ValidationErrorCode,
+  type GameStateV2ValidationResult,
+  type PlacedIndustryStateV2,
+  type PlayerStateV2,
+} from "./game-v2/state";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
