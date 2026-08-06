@@ -5,6 +5,7 @@ import { parse } from "yaml";
 const ROOT = process.cwd();
 const INPUT = path.join(ROOT, "docs", "rules-data", "board-topology.yaml");
 const OUTPUT = path.join(ROOT, "src", "engine", "board", "generated", "topology.ts");
+const CHECK = process.argv.includes("--check");
 
 const ALLOWED_EDGE_KINDS = new Set(["canal", "rail", "both"]);
 
@@ -70,7 +71,18 @@ async function main() {
     cityDefs[city.name] = { industries: city.industries };
   }
 
-  const generated = `/* eslint-disable */\n// AUTO-GENERATED FILE. DO NOT EDIT DIRECTLY.\n// Source: docs/rules-data/board-topology.yaml\n\nexport const CITY_DEFS = ${JSON.stringify(cityDefs, null, 2)} as const;\n\nexport const PORT_IDS = ${JSON.stringify(ports, null, 2)} as const;\n\nexport const EDGE_DEFS = ${JSON.stringify(edges, null, 2)} as const;\n`;
+  const generated = `// AUTO-GENERATED FILE. DO NOT EDIT DIRECTLY.\n// Source: docs/rules-data/board-topology.yaml\n\nexport const CITY_DEFS = ${JSON.stringify(cityDefs, null, 2)} as const;\n\nexport const PORT_IDS = ${JSON.stringify(ports, null, 2)} as const;\n\nexport const EDGE_DEFS = ${JSON.stringify(edges, null, 2)} as const;\n`;
+
+  if (CHECK) {
+    const current = await fs.readFile(OUTPUT, "utf8").catch(() => "");
+    if (current !== generated) {
+      throw new Error(
+        `${path.relative(ROOT, OUTPUT)} is stale. Run pnpm rules:generate:board.`,
+      );
+    }
+    console.log(`Verified ${path.relative(ROOT, OUTPUT)}`);
+    return;
+  }
 
   await fs.mkdir(path.dirname(OUTPUT), { recursive: true });
   await fs.writeFile(OUTPUT, generated, "utf8");

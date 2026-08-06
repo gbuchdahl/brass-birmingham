@@ -3,14 +3,27 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "10.34.5"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "rules:generate:industry": "node scripts/rules/build-industry-data.mjs",
     "rules:generate:board": "node scripts/rules/build-board-topology.mjs",
-    "rules:generate": "pnpm rules:generate:industry && pnpm rules:generate:board"
+    "rules:generate": "pnpm rules:generate:industry && pnpm rules:generate:board",
+    "rules:check:industry": "node scripts/rules/build-industry-data.mjs --check",
+    "rules:check:board": "node scripts/rules/build-board-topology.mjs --check",
+    "rules:check": "pnpm rules:check:industry && pnpm rules:check:board",
+    "verify": "pnpm rules:check && pnpm lint && pnpm typecheck && pnpm test",
+    "check": "pnpm verify && pnpm build"
   },
   "dependencies": {
     "next": "15.5.3",
