@@ -218,6 +218,38 @@ export {
   type DeserializeGameV2ErrorCode,
 } from "./game-v2/serialization";
 export {
+  executeBuildForGameV2,
+  executeDevelopForGameV2,
+  executeLoanForGameV2,
+  executeNetworkForGameV2,
+  executePassForGameV2,
+  executeScoutForGameV2,
+  executeSellForGameV2,
+  type AdaptedActionEffectV2,
+  type FlipIncomeAwardV2,
+  type GameV2ActionAdapterError,
+  type GameV2ActionAdapterResult,
+  type PendingActionFollowUpV2,
+} from "./game-v2/action-adapters";
+export {
+  applyAcceptedActionV2,
+  resolveCompletedRoundV2,
+  type AcceptedActionEffectV2,
+  type ApplyAcceptedActionResultV2,
+  type LiquidationChoicesV2,
+  type ResolveCompletedRoundResultV2,
+  type TurnLifecycleError,
+  type TurnLifecycleErrorCode,
+} from "./game-v2/turn-lifecycle";
+export {
+  deriveRailSetupSeed,
+  resolveGameEra,
+  type EraLifecycleError,
+  type EraLifecycleErrorCode,
+  type EraLifecycleResult,
+  type EraLifecycleSuccess,
+} from "./game-v2/era-lifecycle";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
