@@ -1,5 +1,9 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+Development is currently focused on the deterministic rules engine. See
+[the development progress document](docs/PROGRESS.md) for the active branch,
+pushed checkpoints, local work in progress, and the next planned milestones.
+
 ## Getting Started
 
 Install the pinned Node.js and pnpm versions, then install dependencies:
