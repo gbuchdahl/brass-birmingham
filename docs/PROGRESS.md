@@ -6,7 +6,7 @@ Last updated: 2026-08-06
 
 - Active development branch: `agent/engine-alpha`
 - Draft pull request: <https://github.com/gbuchdahl/brass-birmingham/pull/2>
-- Latest pushed checkpoint: `5193c39` (`Keep game identity stable across rounds`)
+- Latest pushed engine checkpoint: `5193c39` (`Keep game identity stable across rounds`)
 - Full local verification: `pnpm check`
 
 The project is currently **engine-first**. Most progress is visible in the rules
