@@ -7,6 +7,7 @@ This directory is the editable source of truth for rules data. Runtime code cons
 - `ruleset.yaml`, `markets.yaml`, and `setup.yaml`: versioned ruleset, market tracks, and player-count setup.
 - `cards.yaml`: exact location/industry card distribution and separate wild-card supply.
 - `industry-values.yaml`: build costs, resource requirements, cube production, and income-on-flip.
+- `board-v2.yaml`: authoritative retail-board locations, build and merchant spaces, physical links, and player-count rules.
 - `board-topology.yaml`: cities, ports, and edges.
 
 ## Entry rules
@@ -27,6 +28,7 @@ This updates:
 - `src/engine/rules/generated/ruleset.ts`
 - `src/engine/rules/generated/cards.ts`
 - `src/engine/rules/generated/industry-values.ts`
+- `src/engine/rules/generated/board-v2.ts`
 - `src/engine/board/generated/topology.ts`
 
 ## Validate

@@ -44,6 +44,7 @@ pnpm rules:generate
   - `src/engine/rules/generated/ruleset.ts`
   - `src/engine/rules/generated/cards.ts`
   - `src/engine/rules/generated/industry-values.ts`
+  - `src/engine/rules/generated/board-v2.ts`
   - `src/engine/board/generated/topology.ts`
 
 ## Learn More
