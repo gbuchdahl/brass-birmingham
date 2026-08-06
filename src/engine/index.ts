@@ -82,6 +82,14 @@ export {
   type LoanActionState,
 } from "./actions-v2/loan";
 export {
+  passAction,
+  type PassActionEffect,
+  type PassActionError,
+  type PassActionErrorCode,
+  type PassActionResult,
+  type PassActionState,
+} from "./actions-v2/pass";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
