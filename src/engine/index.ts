@@ -27,3 +27,13 @@ export {
 } from "./setup-v2";
 export { reduce } from "./reduce";
 export { getLegalMoves, type LegalMove } from "./legal";
+export {
+  RANDOM_ALGORITHM,
+  createRandomState,
+  nextRandom,
+  nextRandomUint32,
+  randomInt,
+  shuffleWithState,
+  type RandomState,
+  type RandomStep,
+} from "./util/random-state";
