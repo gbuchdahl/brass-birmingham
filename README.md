@@ -33,7 +33,8 @@ For a faster gate that omits the production build, run `pnpm verify`. Generated
 rules artifacts are checked for staleness as part of both commands.
 
 You can start editing the public page in `src/app/(site)/page.tsx`. The page
-auto-updates as you edit the file. The engine sandbox is available at `/dev`.
+auto-updates as you edit the file. A read-only `GameStateV2` engine inspector is
+available at `/dev`.
 
 ## Rules Data Workflow
 
