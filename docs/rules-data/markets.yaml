@@ -1,0 +1,15 @@
+provenance:
+  sources: [official-rulebook, board-reference]
+  detail: Rulebook setup and fallback prices; printed board market spaces.
+
+markets:
+  coal:
+    # Ordered from the first space filled to the last space filled. Buying a
+    # cube removes the last occupied space; selling fills the next empty one.
+    fill_order_prices: [7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1]
+    initial_units: 13
+    fallback_price: 8
+  iron:
+    fill_order_prices: [5, 5, 4, 4, 3, 3, 2, 2, 1, 1]
+    initial_units: 8
+    fallback_price: 6

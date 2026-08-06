@@ -1,0 +1,41 @@
+provenance:
+  sources: [official-rulebook]
+  detail: Components, board setup, player setup, and rounds.
+
+shared:
+  hand_size: 8
+  initial_discard_per_player: 1
+  starting_money: 17
+  starting_income_space: 10
+  links_per_player: 14
+  industry_tiles_per_player: 45
+  wild_location_cards: 4
+  wild_industry_cards: 4
+
+eras:
+  canal:
+    first_round_actions: 1
+    later_round_actions: 2
+  rail:
+    first_round_actions: 2
+    later_round_actions: 2
+
+player_counts:
+  "2":
+    rounds_per_era: 10
+    regular_cards: 40
+    active_merchant_slots: 5
+    merchant_locations: [gloucester, oxford, shrewsbury]
+    excluded_location_banner_colors: [blue, teal]
+  "3":
+    rounds_per_era: 9
+    regular_cards: 54
+    active_merchant_slots: 7
+    merchant_locations: [gloucester, oxford, shrewsbury, warrington]
+    excluded_location_banner_colors: [teal]
+  "4":
+    rounds_per_era: 8
+    regular_cards: 64
+    active_merchant_slots: 9
+    merchant_locations: [gloucester, nottingham, oxford, shrewsbury, warrington]
+    excluded_location_banner_colors: []

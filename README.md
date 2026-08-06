@@ -41,6 +41,7 @@ pnpm rules:generate
 ```
 
 - Generated files are:
+  - `src/engine/rules/generated/ruleset.ts`
   - `src/engine/rules/generated/industry-values.ts`
   - `src/engine/board/generated/topology.ts`
 
