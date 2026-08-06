@@ -28,6 +28,16 @@ export {
 export { reduce } from "./reduce";
 export { getLegalMoves, type LegalMove } from "./legal";
 export {
+  actionsPerTurn,
+  createRoundSpendLedger,
+  determineNextTurnOrder,
+  nextSeat,
+  recordRoundSpending,
+  type LifecycleEra,
+  type RoundSeatId,
+  type RoundSpendLedger,
+} from "./lifecycle";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
