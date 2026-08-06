@@ -144,6 +144,15 @@ export {
   type NetworkIndustryState,
 } from "./actions-v2/network";
 export {
+  scoutAction,
+  type ScoutActionEffect,
+  type ScoutActionError,
+  type ScoutActionErrorCode,
+  type ScoutActionResult,
+  type ScoutActionSelection,
+  type ScoutActionState,
+} from "./actions-v2/scout";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
