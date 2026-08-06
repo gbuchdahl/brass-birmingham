@@ -212,6 +212,12 @@ export {
   type PlayerStateV2,
 } from "./game-v2/state";
 export {
+  DeserializeGameV2Error,
+  deserializeGameV2,
+  serializeGameV2,
+  type DeserializeGameV2ErrorCode,
+} from "./game-v2/serialization";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
