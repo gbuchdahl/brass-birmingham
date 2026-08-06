@@ -74,6 +74,14 @@ export {
   type RoundIncomeSettlementInput,
 } from "./economy/income";
 export {
+  takeLoan,
+  type LoanActionEffect,
+  type LoanActionError,
+  type LoanActionErrorCode,
+  type LoanActionResult,
+  type LoanActionState,
+} from "./actions-v2/loan";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
