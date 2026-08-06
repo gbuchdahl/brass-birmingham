@@ -28,9 +28,8 @@ pnpm check
 For a faster gate that omits the production build, run `pnpm verify`. Generated
 rules artifacts are checked for staleness as part of both commands.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+You can start editing the public page in `src/app/(site)/page.tsx`. The page
+auto-updates as you edit the file. The engine sandbox is available at `/dev`.
 
 ## Rules Data Workflow
 
