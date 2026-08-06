@@ -32,42 +32,16 @@ function ok(state: GameState): ReduceResult {
   return { ok: true, state };
 }
 
-function withInvalidActionLog(
-  state: GameState,
-  action: Action,
-  error: ReduceError,
-): GameState {
-  const nextEvent = {
-    idx: state.log.length,
-    type: "INVALID_ACTION",
-    data: {
-      code: error.code,
-      message: error.message,
-      player: action.player,
-      action,
-      context: {
-        currentPlayer: state.currentPlayer,
-        phase: state.phase,
-      },
-    },
-  };
-
-  return {
-    ...state,
-    log: [...state.log, nextEvent],
-  };
-}
-
 function invalid(
   state: GameState,
-  action: Action,
+  _action: Action,
   code: ReduceErrorCode,
   message: string,
 ): ReduceResult {
   const error = { code, message };
   return {
     ok: false,
-    state: withInvalidActionLog(state, action, error),
+    state,
     error,
   };
 }

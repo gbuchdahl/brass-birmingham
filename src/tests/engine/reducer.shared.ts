@@ -42,18 +42,7 @@ export function expectInvalid(
   }
   expect(result.error.code).toBe(code);
   const next = result.state;
-  expect(next).not.toBe(previous);
-  expect(next.log).toHaveLength(previous.log.length + 1);
-  expect(next.log[next.log.length - 1]).toMatchObject({
-    type: "INVALID_ACTION",
-    data: {
-      code,
-      message: result.error.message,
-      context: {
-        currentPlayer: previous.currentPlayer,
-        phase: previous.phase,
-      },
-    },
-  });
+  expect(next).toBe(previous);
+  expect(next.log).toBe(previous.log);
   return next;
 }
