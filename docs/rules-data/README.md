@@ -9,6 +9,7 @@ This directory is the editable source of truth for rules data. Runtime code cons
 - `industry-values.yaml`: build costs, resource requirements, cube production, and income-on-flip.
 - `industry-tiles-v2.yaml`: authoritative 45-tile per-player manifest with all printed face values.
 - `board-v2.yaml`: authoritative retail-board locations, build and merchant spaces, physical links, and player-count rules.
+- `income-track.yaml`: all 101 printed progress spaces plus loan and round-income rules.
 - `board-topology.yaml`: cities, ports, and edges.
 
 ## Entry rules
@@ -31,6 +32,7 @@ This updates:
 - `src/engine/rules/generated/industry-values.ts`
 - `src/engine/rules/generated/industry-tiles-v2.ts`
 - `src/engine/rules/generated/board-v2.ts`
+- `src/engine/rules/generated/income-track.ts`
 - `src/engine/board/generated/topology.ts`
 
 ## Validate

@@ -46,6 +46,7 @@ pnpm rules:generate
   - `src/engine/rules/generated/industry-values.ts`
   - `src/engine/rules/generated/industry-tiles-v2.ts`
   - `src/engine/rules/generated/board-v2.ts`
+  - `src/engine/rules/generated/income-track.ts`
   - `src/engine/board/generated/topology.ts`
 
 ## Learn More

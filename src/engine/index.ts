@@ -62,6 +62,18 @@ export {
   type RemoveBuiltTileResult,
 } from "./player-v2";
 export {
+  advanceIncomeSpaces,
+  applyLoanToIncome,
+  canTakeLoan,
+  highestSpaceForIncomeLevel,
+  incomeLevelAt,
+  liquidationValue,
+  settleRoundIncome,
+  type LiquidatableIndustry,
+  type RoundIncomeSettlement,
+  type RoundIncomeSettlementInput,
+} from "./economy/income";
+export {
   RANDOM_ALGORITHM,
   createRandomState,
   nextRandom,
