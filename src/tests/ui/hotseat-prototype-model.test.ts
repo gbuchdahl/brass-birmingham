@@ -2,20 +2,25 @@ import { describe, expect, it } from "vitest";
 import { WILD_LOCATION_CARD_ID } from "@/engine/cards-v2";
 import { highestSpaceForIncomeLevel } from "@/engine/economy/income";
 import type { GameV2CommandOutcome } from "@/engine/game-v2/commands";
-import { createGameV2, type GameStateV2 } from "@/engine/game-v2/state";
+import {
+  createGameV2,
+  validateGameStateV2,
+  type GameStateV2,
+} from "@/engine/game-v2/state";
 import { BOARD_V2 } from "@/engine/rules/generated/board-v2";
 import type { IndustryTileKind } from "@/engine/rules/generated/industry-tiles-v2";
+import { SETUP_DATA } from "@/engine/rules/generated/ruleset";
 import {
   createHotseatSession,
   hideHotseatHand,
   revealHotseatHand,
+  setHotseatBoundaryDraft,
   setHotseatDraft,
   submitHotseatCommand,
   toHotseatViewModel,
 } from "@/ui/hotseat-session";
 import {
   appendSelectedHotseatSellSale,
-  automaticHotseatLiquidationChoices,
   clearHotseatSellDraft,
   describeHotseatOutcome,
   hotseatCardDraft,
@@ -42,7 +47,10 @@ import {
   selectedHotseatNetworkCommand,
   selectedHotseatNetworkLinkId,
   hotseatMerchantFreeDevelopSelectionId,
+  hotseatLiquidationDraft,
+  readHotseatLiquidationDraft,
   selectHotseatMerchantFreeDevelopSelection,
+  selectHotseatLiquidationPrefix,
   selectedHotseatMerchantFreeDevelopCommand,
   selectedHotseatMerchantFreeDevelopSelectionId,
   selectedHotseatSellCommand,
@@ -56,7 +64,10 @@ import {
   deserializeHotseatSession,
   serializeHotseatSession,
 } from "@/ui/hotseat-persistence";
-import { submitSelectedHotseatSell } from "@/ui/hotseat-prototype-controller";
+import {
+  submitSelectedHotseatLiquidation,
+  submitSelectedHotseatSell,
+} from "@/ui/hotseat-prototype-controller";
 
 function pendingFreeDevelop(
   state: GameStateV2,
@@ -389,6 +400,76 @@ function revealedSellFixture(fixture: ReturnType<typeof sellFixture>) {
     session.state,
   );
   return { ...fixture, session, model, cardId };
+}
+
+function requireValidState(state: GameStateV2): GameStateV2 {
+  const validation = validateGameStateV2(state);
+  if (!validation.ok) {
+    throw new Error(validation.errors.map((error) =>
+      `${error.path}: ${error.message}`
+    ).join("\n"));
+  }
+  return state;
+}
+
+function withPlayerIncome(
+  state: GameStateV2,
+  seat: string,
+  incomeLevel: number,
+  money: number,
+  victoryPoints: number,
+): GameStateV2 {
+  return requireValidState({
+    ...state,
+    players: {
+      ...state.players,
+      [seat]: {
+        ...state.players[seat],
+        money,
+        incomeMarkerSpace: highestSpaceForIncomeLevel(incomeLevel),
+        victoryPoints,
+      },
+    },
+  });
+}
+
+function completeRoundSession(initial: GameStateV2) {
+  let session = createHotseatSession(initial);
+  while (session.state.progress.phase === "action") {
+    const seat = session.state.currentSeat;
+    const cardId = session.state.cards.hands[seat][0];
+    if (cardId === undefined) throw new Error(`No Pass card for ${seat}`);
+    session = submitHotseatCommand(revealHotseatHand(session), {
+      type: "PASS",
+      cardId,
+    });
+  }
+  expect(session.state.progress.phase).toBe("round_settlement");
+  return session;
+}
+
+function withFinalRoundCards(state: GameStateV2): GameStateV2 {
+  const regularCards = [
+    ...state.turnOrder.flatMap((seat) => state.cards.hands[seat]),
+    ...state.cards.draw,
+    ...state.cards.discard,
+  ].filter((cardId) => !cardId.startsWith("wild-"));
+  const cardsNeeded = state.turnOrder.length * state.actionLimit;
+  return requireValidState({
+    ...state,
+    cards: {
+      hands: Object.fromEntries(state.turnOrder.map((seat, seatIndex) => [
+        seat,
+        regularCards.slice(
+          seatIndex * state.actionLimit,
+          (seatIndex + 1) * state.actionLimit,
+        ),
+      ])) as GameStateV2["cards"]["hands"],
+      draw: [],
+      discard: regularCards.slice(cardsNeeded) as GameStateV2["cards"]["discard"],
+      wildSupplies: { ...state.cards.wildSupplies },
+    },
+  });
 }
 
 describe("hot-seat prototype presentation model", () => {
@@ -1870,9 +1951,15 @@ describe("hot-seat prototype presentation model", () => {
     });
     const model = toHotseatPrototypeModel(toHotseatViewModel(bob), bob.state);
 
-    expect(model.boundary).toEqual({
+    expect(model.boundary).toMatchObject({
       kind: "round_settlement",
-      automaticLiquidationChoices: {},
+      draftIssue: null,
+      liquidation: {
+        availability: "exact",
+        requiredSeats: [],
+        ready: true,
+        liquidationChoices: {},
+      },
     });
     expect(model.handoff).toBeNull();
     expect(model.private).toBeNull();
@@ -1890,12 +1977,251 @@ describe("hot-seat prototype presentation model", () => {
     });
     const model = toHotseatPrototypeModel(toHotseatViewModel(bob), bob.state);
 
-    expect(model.boundary).toEqual({
+    expect(model.boundary).toMatchObject({
       kind: "round_settlement",
-      automaticLiquidationChoices: { alice: [] },
+      draftIssue: null,
+      liquidation: {
+        availability: "exact",
+        requiredSeats: ["alice"],
+        ready: false,
+        liquidationChoices: null,
+        seats: [{
+          seat: "alice",
+          coverage: "covered_by_cash",
+          acknowledged: false,
+          preview: { moneyAfter: 44, victoryPointsLost: 0 },
+        }],
+      },
     });
-    expect(automaticHotseatLiquidationChoices(model.public)).toEqual({
-      alice: [],
+  });
+
+  it("advances one exact public liquidation choice and submits it authoritatively", () => {
+    let state = placeTopTile(
+      createGameV2(["alice", "bob"], "prototype-liquidation-submit"),
+      "alice",
+      "birmingham_1",
+      "birmingham",
+      "cotton",
+    );
+    state = withPlayerIncome(state, "alice", -5, 0, 3);
+    const boundary = completeRoundSession(state);
+    const initial = toHotseatPrototypeModel(
+      toHotseatViewModel(boundary),
+      boundary.state,
+      boundary.draft,
+    );
+    const alice = initial.boundary?.kind === "round_settlement"
+      ? initial.boundary.liquidation?.seats.find((seat) => seat.seat === "alice")
+      : undefined;
+    const choice = alice?.nextChoices.find((candidate) =>
+      candidate.buildSpaceId === "birmingham_1"
+    );
+    expect(alice).toMatchObject({
+      coverage: "shortfall",
+      acknowledged: false,
+      selectedAssets: [],
+      remainingShortfall: 5,
+      preview: {
+        moneyAfter: 0,
+        victoryPointsAfter: 0,
+        victoryPointsLost: 3,
+        unpaidShortfall: 2,
+      },
+    });
+    expect(choice).toMatchObject({
+      liquidationValue: 6,
+      choicesAfterAppend: ["birmingham_1"],
+      coverageAfterAppend: "covered_by_liquidation",
+    });
+    if (choice === undefined) throw new Error("Expected a liquidation choice");
+
+    const withDraft = setHotseatBoundaryDraft(
+      boundary,
+      selectHotseatLiquidationPrefix(
+        boundary.draft,
+        boundary.state.revision,
+        "alice",
+        choice.choicesAfterAppend,
+      ),
+    );
+    const ready = toHotseatPrototypeModel(
+      toHotseatViewModel(withDraft),
+      withDraft.state,
+      withDraft.draft,
+    );
+    expect(withDraft.visibility).toEqual({ kind: "handoff", nextSeat: null });
+    expect(ready.private).toBeNull();
+    expect(ready.handoff).toBeNull();
+    expect(ready.boundary).toMatchObject({
+      kind: "round_settlement",
+      draftIssue: null,
+      liquidation: {
+        ready: true,
+        liquidationChoices: { alice: ["birmingham_1"] },
+        seats: [{
+          seat: "alice",
+          selectedAssets: [{ buildSpaceId: "birmingham_1" }],
+          preview: {
+            moneyAfter: 1,
+            victoryPointsAfter: 3,
+            victoryPointsLost: 0,
+            unpaidShortfall: 0,
+          },
+        }],
+      },
+    });
+    expect(JSON.stringify(ready)).not.toContain(
+      boundary.state.cards.hands.alice[0],
+    );
+
+    const settled = submitSelectedHotseatLiquidation(withDraft);
+    expect(settled.state.revision).toBe(withDraft.state.revision + 1);
+    expect(settled.state.progress.phase).toBe("action");
+    expect(settled.state.board.placedIndustries).not.toHaveProperty(
+      "birmingham_1",
+    );
+    expect(settled.state.players.alice).toMatchObject({
+      money: 1,
+      victoryPoints: 3,
+    });
+    expect(settled.acceptedCommands.at(-1)?.command).toEqual({
+      type: "SETTLE_ROUND",
+      liquidationChoices: { alice: ["birmingham_1"] },
+    });
+    expect(settled.draft).toBeNull();
+  });
+
+  it("requires the explicit cash-covered acknowledgment before submitting", () => {
+    const boundary = completeRoundSession(withPlayerIncome(
+      createGameV2(["alice", "bob"], "prototype-liquidation-ack"),
+      "alice",
+      -3,
+      17,
+      4,
+    ));
+    expect(submitSelectedHotseatLiquidation(boundary)).toBe(boundary);
+
+    const acknowledged = setHotseatBoundaryDraft(
+      boundary,
+      selectHotseatLiquidationPrefix(
+        boundary.draft,
+        boundary.state.revision,
+        "alice",
+        [],
+      ),
+    );
+    expect(readHotseatLiquidationDraft(
+      acknowledged.draft,
+      acknowledged.state.revision,
+    )).toEqual({
+      ok: true,
+      liquidationChoices: { alice: [] },
+    });
+    const model = toHotseatPrototypeModel(
+      toHotseatViewModel(acknowledged),
+      acknowledged.state,
+      acknowledged.draft,
+    );
+    expect(model.boundary).toMatchObject({
+      kind: "round_settlement",
+      liquidation: {
+        ready: true,
+        liquidationChoices: { alice: [] },
+      },
+    });
+
+    const settled = submitSelectedHotseatLiquidation(acknowledged);
+    expect(settled.state.players.alice).toMatchObject({
+      money: 14,
+      victoryPoints: 4,
+    });
+  });
+
+  it("fails closed on stale or malformed public settlement drafts", () => {
+    const boundary = completeRoundSession(withPlayerIncome(
+      createGameV2(["alice", "bob"], "prototype-liquidation-stale"),
+      "alice",
+      -3,
+      17,
+      0,
+    ));
+    const stale = setHotseatBoundaryDraft(
+      boundary,
+      hotseatLiquidationDraft(boundary.state.revision - 1, { alice: [] }),
+    );
+    const staleModel = toHotseatPrototypeModel(
+      toHotseatViewModel(stale),
+      stale.state,
+      stale.draft,
+    );
+    expect(staleModel.boundary).toMatchObject({
+      kind: "round_settlement",
+      liquidation: null,
+      draftIssue: expect.stringContaining("stale"),
+    });
+    expect(submitSelectedHotseatLiquidation(stale)).toBe(stale);
+
+    const malformed = setHotseatBoundaryDraft(boundary, {
+      commandType: "SETTLE_ROUND",
+      fields: {
+        boundaryRevision: boundary.state.revision,
+        liquidationChoices: { alice: [7] },
+      },
+    });
+    expect(readHotseatLiquidationDraft(
+      malformed.draft,
+      malformed.state.revision,
+    )).toMatchObject({ ok: false });
+    expect(submitSelectedHotseatLiquidation(malformed)).toBe(malformed);
+
+    const cleared = setHotseatBoundaryDraft(malformed, null);
+    const recovered = toHotseatPrototypeModel(
+      toHotseatViewModel(cleared),
+      cleared.state,
+      cleared.draft,
+    );
+    expect(recovered.boundary).toMatchObject({
+      kind: "round_settlement",
+      draftIssue: null,
+      liquidation: { availability: "exact" },
+    });
+  });
+
+  it("submits exactly {} and skips income in the final Rail round", () => {
+    const finalRound = SETUP_DATA.playerCounts[2].roundsPerEra;
+    let state = requireValidState({
+      ...createGameV2(["alice", "bob"], "prototype-final-rail-settlement"),
+      era: "rail",
+      round: finalRound,
+      actionLimit: 2,
+    });
+    state = withPlayerIncome(state, "alice", -5, 0, 7);
+    const boundary = completeRoundSession(withFinalRoundCards(state));
+    const model = toHotseatPrototypeModel(
+      toHotseatViewModel(boundary),
+      boundary.state,
+      boundary.draft,
+    );
+    expect(model.boundary).toMatchObject({
+      kind: "round_settlement",
+      liquidation: {
+        availability: "exact",
+        finalRailIncomeSkipped: true,
+        requiredSeats: [],
+        ready: true,
+        liquidationChoices: {},
+      },
+    });
+
+    const settled = submitSelectedHotseatLiquidation(boundary);
+    expect(settled.state.progress.phase).toBe("era_transition");
+    expect(settled.state.players.alice).toMatchObject({
+      money: 0,
+      victoryPoints: 7,
+    });
+    expect(settled.acceptedCommands.at(-1)?.command).toEqual({
+      type: "SETTLE_ROUND",
+      liquidationChoices: {},
     });
   });
 });

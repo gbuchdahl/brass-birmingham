@@ -29,3 +29,28 @@ export function submitSelectedHotseatSell(
     ? hideHotseatHand(submitted)
     : submitted;
 }
+
+/**
+ * Submits only an exact, complete public settlement selection for the current
+ * authoritative revision. Malformed/stale drafts and incomplete prefixes are
+ * inert, so the reducer never receives an inferred fallback choice map.
+ */
+export function submitSelectedHotseatLiquidation(
+  session: HotseatSession,
+): HotseatSession {
+  const boundary = toHotseatPrototypeModel(
+    toHotseatViewModel(session),
+    session.state,
+    session.draft,
+  ).boundary;
+  if (
+    boundary?.kind !== "round_settlement" ||
+    boundary.liquidation?.availability !== "exact" ||
+    !boundary.liquidation.ready ||
+    boundary.liquidation.liquidationChoices === null
+  ) return session;
+  return submitHotseatCommand(session, {
+    type: "SETTLE_ROUND",
+    liquidationChoices: boundary.liquidation.liquidationChoices,
+  });
+}

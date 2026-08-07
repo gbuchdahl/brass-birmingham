@@ -22,6 +22,9 @@ type GameV2HotseatPrototypeProps = {
   readonly onClearSell: () => void;
   readonly onSell: () => void;
   readonly onResolveMerchantFreeDevelop: () => void;
+  readonly onAcknowledgeLiquidation: (seat: string) => void;
+  readonly onLiquidateIndustry: (seat: string, buildSpaceId: string) => void;
+  readonly onClearLiquidation: () => void;
   readonly onSettleRound: () => void;
   readonly onResolveEra: () => void;
 };
@@ -60,6 +63,9 @@ export function GameV2HotseatPrototype({
   onClearSell,
   onSell,
   onResolveMerchantFreeDevelop,
+  onAcknowledgeLiquidation,
+  onLiquidateIndustry,
+  onClearLiquidation,
   onSettleRound,
   onResolveEra,
 }: GameV2HotseatPrototypeProps) {
@@ -156,20 +162,184 @@ export function GameV2HotseatPrototype({
       ) : null}
 
       {model.boundary?.kind === "round_settlement" ? (
-        <section className={panel}>
-          <h2 className="text-xl font-bold"><Emoji>💷</Emoji> Round complete</h2>
-          <p className="mt-2 text-sm text-slate-600 dark:text-neutral-300">
-            {model.boundary.automaticLiquidationChoices === null
-              ? "At least one player must choose industries to liquidate before income can be settled. That control is the next settlement slice."
-              : "Apply income and determine the next turn order. No asset-sale decision is required."}
-          </p>
+        <section className={panel} aria-labelledby="round-settlement-title">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold" id="round-settlement-title">
+                <Emoji>💷</Emoji> Round complete
+              </h2>
+              <p className="mt-2 text-sm text-slate-600 dark:text-neutral-300">
+                Settle negative income publicly. When cash is short, choose one
+                industry at a time to liquidate; no private hand is revealed.
+              </p>
+            </div>
+            <button
+              className={secondaryButton}
+              onClick={onClearLiquidation}
+              type="button"
+            >
+              Clear / restart settlement
+            </button>
+          </div>
+
+          {model.boundary.draftIssue !== null ? (
+            <div
+              className="mt-4 rounded border border-red-500 bg-red-50 p-3 text-sm text-red-950 dark:border-red-700 dark:bg-red-950/40 dark:text-red-100"
+              role="alert"
+            >
+              <p className="font-bold">Settlement draft cannot be used</p>
+              <p className="mt-1">{model.boundary.draftIssue}</p>
+              <p className="mt-1">Clear the draft to restart from the authoritative state.</p>
+            </div>
+          ) : null}
+
+          {model.boundary.liquidation?.availability === "disabled" ? (
+            <div
+              className="mt-4 rounded border border-red-500 bg-red-50 p-3 text-sm text-red-950 dark:border-red-700 dark:bg-red-950/40 dark:text-red-100"
+              role="alert"
+            >
+              <p className="font-bold">Settlement choices are invalid</p>
+              <p className="mt-1">{model.boundary.liquidation.reason?.message}</p>
+            </div>
+          ) : null}
+
+          {model.boundary.liquidation?.availability === "exact" &&
+              model.boundary.liquidation.finalRailIncomeSkipped ? (
+            <div className={`${inset} mt-4`}>
+              <p className="font-semibold">Final Rail round</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-neutral-300">
+                Income and liquidation are skipped. Continue with the exact empty settlement.
+              </p>
+            </div>
+          ) : null}
+
+          {model.boundary.liquidation?.availability === "exact" &&
+              !model.boundary.liquidation.finalRailIncomeSkipped ? (
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {model.boundary.liquidation.seats.length === 0 ? (
+                <div className={inset}>
+                  <p className="font-semibold">No negative income payments</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-neutral-300">
+                    No player needs to liquidate an industry this round.
+                  </p>
+                </div>
+              ) : null}
+
+              {model.boundary.liquidation.seats.map((seat) => (
+                <article className={inset} key={seat.seat}>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-bold">{seat.seat}</h3>
+                      <p className="mt-1 text-sm">
+                        Income {seat.incomeLevel} · owes £{seat.requiredPayment} · cash £{seat.cashBefore}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded border px-2 py-1 text-xs font-bold ${
+                        seat.ready
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100"
+                          : "border-amber-500 bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100"
+                      }`}
+                    >
+                      {seat.ready
+                        ? "READY"
+                        : seat.coverage === "covered_by_cash"
+                          ? "CONFIRM PAYMENT"
+                          : seat.coverage === "assets_exhausted"
+                            ? "CONFIRM SHORTFALL"
+                            : `£${seat.remainingShortfall} SHORT`}
+                    </span>
+                  </div>
+
+                  {seat.selectedAssets.length > 0 ? (
+                    <div className="mt-3">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-neutral-400">
+                        Industries selected for liquidation
+                      </p>
+                      <ol className="mt-1 grid gap-1 text-sm">
+                        {seat.selectedAssets.map((asset, index) => (
+                          <li key={asset.buildSpaceId}>
+                            {index + 1}. {asset.locationLabel} · {asset.industry} level {asset.level} · £{asset.liquidationValue}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  ) : null}
+
+                  <dl className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                    <div>
+                      <dt className="text-xs text-slate-500 dark:text-neutral-400">Sale proceeds</dt>
+                      <dd className="font-semibold">£{seat.liquidationProceeds}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-500 dark:text-neutral-400">Cash after</dt>
+                      <dd className="font-semibold">£{seat.preview.moneyAfter}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-500 dark:text-neutral-400">VP after</dt>
+                      <dd className="font-semibold">
+                        {seat.preview.victoryPointsAfter}
+                        {seat.preview.victoryPointsLost > 0
+                          ? ` (-${seat.preview.victoryPointsLost})`
+                          : ""}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-500 dark:text-neutral-400">Unpaid</dt>
+                      <dd className="font-semibold">£{seat.preview.unpaidShortfall}</dd>
+                    </div>
+                  </dl>
+
+                  {!seat.acknowledged && seat.coverage !== "shortfall" ? (
+                    <button
+                      className={`${secondaryButton} mt-3`}
+                      onClick={() => onAcknowledgeLiquidation(seat.seat)}
+                      type="button"
+                    >
+                      {seat.coverage === "covered_by_cash"
+                        ? `Confirm ${seat.seat} pays from cash`
+                        : `Confirm ${seat.seat} has no useful assets`}
+                    </button>
+                  ) : null}
+
+                  {seat.nextChoices.length > 0 ? (
+                    <div className="mt-3">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-neutral-400">
+                        Choose one next industry
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {seat.nextChoices.map((choice) => (
+                          <button
+                            className={secondaryButton}
+                            key={choice.buildSpaceId}
+                            onClick={() =>
+                              onLiquidateIndustry(
+                                seat.seat,
+                                choice.buildSpaceId,
+                              )}
+                            type="button"
+                          >
+                            Liquidate {choice.locationLabel} {choice.industry} level {choice.level} for £{choice.liquidationValue}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          ) : null}
+
           <button
             className={`${primaryButton} mt-4`}
-            disabled={model.boundary.automaticLiquidationChoices === null}
+            disabled={
+              model.boundary.liquidation?.availability !== "exact" ||
+              !model.boundary.liquidation.ready
+            }
             onClick={onSettleRound}
             type="button"
           >
-            Continue to round settlement
+            Apply settlement and continue
           </button>
         </section>
       ) : null}

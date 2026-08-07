@@ -25,13 +25,15 @@ import {
   type GameV2SellPlan,
   type GameV2SellProjectedSale,
 } from "@/engine/game-v2/sell-legal";
+import {
+  getGameV2LiquidationLegalOptions,
+  type GameV2LiquidationLegalOptions,
+} from "@/engine/game-v2/liquidation-legal";
 import type { GameStateV2 } from "@/engine/game-v2/state";
-import { incomeLevelAt } from "@/engine/economy/income";
 import type { LiquidationChoicesV2 } from "@/engine/game-v2/turn-lifecycle";
 import { CARD_CATALOG } from "@/engine/rules/generated/cards";
 import { BOARD_V2 } from "@/engine/rules/generated/board-v2";
 import { INDUSTRY_TILE_BY_ID } from "@/engine/rules/generated/industry-tiles-v2";
-import { SETUP_DATA } from "@/engine/rules/generated/ruleset";
 import type {
   HotseatDraft,
   HotseatPublicModel,
@@ -264,7 +266,9 @@ export type HotseatPrototypeFeedback =
 export type HotseatPrototypeBoundary =
   | {
       readonly kind: "round_settlement";
-      readonly automaticLiquidationChoices: LiquidationChoicesV2 | null;
+      /** Exact public settlement progress; null means the draft/view failed closed. */
+      readonly liquidation: GameV2LiquidationLegalOptions | null;
+      readonly draftIssue: string | null;
     }
   | { readonly kind: "era_transition" }
   | {
@@ -957,12 +961,35 @@ export function describeHotseatOutcome(outcome: GameV2CommandOutcome): string {
 
 function boundaryFor(
   game: HotseatPublicModel,
+  state: GameStateV2,
+  boundaryDraft: HotseatDraft | null,
 ): HotseatPrototypeBoundary | null {
   const progress = game.progress;
   if (progress.phase === "round_settlement") {
+    if (
+      state.progress.phase !== "round_settlement" ||
+      state.gameId !== game.identity.gameId ||
+      state.revision !== game.identity.revision
+    ) {
+      return {
+        kind: "round_settlement",
+        liquidation: null,
+        draftIssue: "The public settlement view is stale for the authoritative game.",
+      };
+    }
+    const draft = readHotseatLiquidationDraft(
+      boundaryDraft,
+      state.revision,
+    );
     return {
       kind: "round_settlement",
-      automaticLiquidationChoices: automaticHotseatLiquidationChoices(game),
+      liquidation: draft.ok
+        ? getGameV2LiquidationLegalOptions(
+            state,
+            draft.liquidationChoices,
+          )
+        : null,
+      draftIssue: draft.ok ? null : draft.message,
     };
   }
   if (progress.phase === "era_transition") {
@@ -981,36 +1008,113 @@ function boundaryFor(
   return null;
 }
 
-/**
- * Produces a settlement that needs no asset-sale decision. A negative-income
- * player still gets an explicit empty choice, as required by the engine. When
- * cash is short and the player owns an industry, the UI must ask which assets
- * to sell instead of silently choosing or converting the shortfall to VP loss.
- */
-export function automaticHotseatLiquidationChoices(
-  game: HotseatPublicModel,
-): LiquidationChoicesV2 | null {
-  const playerCount = game.turn.turnOrder.length as 2 | 3 | 4;
-  const finalRound = SETUP_DATA.playerCounts[playerCount]?.roundsPerEra;
-  if (game.turn.era === "rail" && game.turn.round === finalRound) return {};
+export type HotseatLiquidationDraftRead =
+  | {
+      readonly ok: true;
+      readonly liquidationChoices: LiquidationChoicesV2;
+    }
+  | {
+      readonly ok: false;
+      readonly message: string;
+    };
 
-  const choices: Record<string, readonly string[]> = {};
-  for (const player of game.players) {
-    const income = incomeLevelAt(player.incomeMarkerSpace);
-    if (income >= 0) continue;
-    const requiredPayment = -income;
-    const ownsIndustry = game.board.placedIndustries.some(
-      (industry) => industry.owner === player.seat,
-    );
-    if (player.money < requiredPayment && ownsIndustry) return null;
-    choices[player.seat] = [];
+function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Reads the public settlement form without trusting opaque draft fields. A
+ * missing draft is the valid empty prefix; malformed or revision-stale drafts
+ * remain distinguishable so callers cannot accidentally submit `{}` instead.
+ */
+export function readHotseatLiquidationDraft(
+  draft: HotseatDraft | null,
+  expectedRevision: number,
+): HotseatLiquidationDraftRead {
+  if (draft === null) return { ok: true, liquidationChoices: {} };
+  if (draft.commandType !== "SETTLE_ROUND") {
+    return {
+      ok: false,
+      message: "The saved settlement draft has the wrong command type.",
+    };
   }
-  return choices;
+  if (draft.fields.boundaryRevision !== expectedRevision) {
+    return {
+      ok: false,
+      message: "The settlement draft is stale for this game revision.",
+    };
+  }
+  const choices = draft.fields.liquidationChoices;
+  if (!isPlainRecord(choices)) {
+    return {
+      ok: false,
+      message: "The settlement draft does not contain a valid choice map.",
+    };
+  }
+
+  const entries: Array<readonly [string, readonly string[]]> = [];
+  for (const [seat, selected] of Object.entries(choices)) {
+    if (
+      seat.length === 0 ||
+      !Array.isArray(selected) ||
+      selected.some((industryId) =>
+        typeof industryId !== "string" || industryId.length === 0
+      )
+    ) {
+      return {
+        ok: false,
+        message: "The settlement draft contains a malformed seat selection.",
+      };
+    }
+    entries.push([seat, [...selected] as readonly string[]]);
+  }
+  const liquidationChoices = Object.fromEntries(entries) as LiquidationChoicesV2;
+  return { ok: true, liquidationChoices };
+}
+
+export function hotseatLiquidationDraft(
+  boundaryRevision: number,
+  liquidationChoices: LiquidationChoicesV2,
+): HotseatDraft {
+  return {
+    commandType: "SETTLE_ROUND",
+    fields: {
+      boundaryRevision,
+      liquidationChoices: Object.fromEntries(
+        Object.entries(liquidationChoices).map(([seat, choices]) => [
+          seat,
+          [...choices],
+        ]),
+      ),
+    },
+  };
+}
+
+/** Replaces one seat prefix after the page verifies it against the exact selector. */
+export function selectHotseatLiquidationPrefix(
+  draft: HotseatDraft | null,
+  expectedRevision: number,
+  seat: string,
+  choices: readonly string[],
+): HotseatDraft | null {
+  const current = readHotseatLiquidationDraft(draft, expectedRevision);
+  if (
+    !current.ok ||
+    seat.length === 0 ||
+    choices.some((industryId) =>
+      typeof industryId !== "string" || industryId.length === 0
+    )
+  ) return draft;
+  return hotseatLiquidationDraft(expectedRevision, {
+    ...current.liquidationChoices,
+    [seat]: [...choices],
+  });
 }
 
 export function toHotseatPrototypeModel(
   view: HotseatViewModel,
   state: GameStateV2,
+  boundaryDraft: HotseatDraft | null = null,
 ): HotseatPrototypeModel {
   const feedback: HotseatPrototypeFeedback | null = view.lastResult === null
     ? null
@@ -1354,7 +1458,7 @@ export function toHotseatPrototypeModel(
     private: privateModel,
     placedIndustries,
     playerIndustryInventories,
-    boundary: boundaryFor(view.public),
+    boundary: boundaryFor(view.public, state, boundaryDraft),
     feedback,
   };
 }

@@ -47,7 +47,9 @@ Player count and seed changes take effect when you choose **New / reset game**.
 Progress is corruption-checked and autosaved in this browser; reload always
 returns to a privacy-safe handoff screen. If play enters a Merchant free-Develop
 follow-up, its exact tile choice is also hidden behind the owning player's
-handoff and can be resolved in the UI.
+handoff and can be resolved in the UI. Round settlement is public: cash-covered
+players confirm payment, while cash-short players progressively choose exact
+owned industries to liquidate until the authoritative settlement is ready.
 
 ## Rules Data Workflow
 

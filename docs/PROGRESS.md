@@ -15,6 +15,7 @@ interactive hot-seat prototype at `/dev`. It supports privacy-safe device
 handoff, exact industry Build and Develop plans, Pass, Loan, Scout, exact Canal
 Network link selection, progressive exact Sell choices, exact Merchant
 free-Develop follow-ups, automatic cash-covered income settlement,
+progressive public asset liquidation,
 corruption-safe local recovery, and the system boundaries required to play
 deterministic rounds through both eras.
 
@@ -69,8 +70,8 @@ deterministic rounds through both eras.
   pending free Develop. Rail plans include ordered links, exact coal sources,
   sequential market prices, the optional second link's own beer, flips, and
   income. Every complete plan is accepted by the authoritative command reducer
-  or round-settlement authority. Rail Network and liquidation controls remain
-  explicitly incomplete in the UI.
+  or round-settlement authority. Liquidation is now playable in the public
+  round-settlement UI; Rail Network controls remain explicitly incomplete.
 - Strict event/phase provenance validation for command receipts, round and era
   boundaries, Merchant follow-ups, Canal-to-Rail transition, and terminal Rail
   scoring.
@@ -132,6 +133,14 @@ exhausted. It previews cash and VP loss and returns a command map only after the
 authoritative settlement accepts every seat together; final Rail correctly
 skips income with `{}`.
 
+The hot-seat settlement screen now drives that exact contract without revealing
+any hand. Cash-covered seats explicitly confirm `[]`; a cash-short seat adds one
+ordered owned industry per click while the screen previews sale proceeds, cash,
+VP loss, and unpaid shortfall. Submission stays disabled until every required
+seat is authoritative-ready, stale or malformed revision-bound drafts fail
+closed, final Rail accepts the rules-required `{}`, and local autosave excludes
+the transient liquidation draft.
+
 The browser-verified prototype can build a real level-1 Cannock coal mine for
 £5 and show its two coal cubes; Develop a level-1 Manufacturer and Cotton Mill
 for £4 of market iron, reducing £17 to £13 and advancing both public next-tile
@@ -145,9 +154,15 @@ survives reload behind a hidden handoff, its exact Manufacturer choice advances
 the public stack, the parent Sell completes once, and round 3 restores at the
 correct private handoff. Coal and Iron Works Build receipts now spell out how
 many produced cubes sold, how many remain, and why income did or did not move.
+An ordinary browser path also took a Loan, built a Cotton Mill, Pottery,
+Stafford–Stone Canal, and Stone Brewery, then settled a £3 bill from £0 cash by
+liquidating the £2 Brewery followed by the £6 Cotton Mill. The UI held submission
+while £1 remained, applied the exact ordered assets once covered, left £5 cash,
+removed only those two industries, advanced the round, and restored the hidden
+revision-13 handoff after reload.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
-clean. The verified checkpoint has 47 test files / 612 tests plus the production
+clean. The verified checkpoint has 47 test files / 616 tests plus the production
 build. Start it with:
 
 ```bash
@@ -158,13 +173,12 @@ Then open <http://localhost:3000/dev>.
 
 ## Next checkpoints
 
-1. Add genuine asset-liquidation controls through the exact progressive
-   legal-target selector.
-2. Expose the exact progressive Rail Network selector without weakening the
+1. Expose the exact progressive Rail Network selector without weakening the
    already exact Canal control.
-3. Run complete-game browser scenarios and the final fresh-install gate:
-   generated-data checks, lint, typecheck, unit tests, production build, and
-   accessibility smoke.
+2. Add revision-aware focus management and a two-step reset confirmation.
+3. Run complete-game 2-4-player browser scenarios and the final fresh-install
+   gate: generated-data checks, lint, typecheck, unit tests, production build,
+   and accessibility smoke.
 
 ## Goal and non-goals
 

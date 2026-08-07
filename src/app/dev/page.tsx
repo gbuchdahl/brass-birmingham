@@ -4,7 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createGameV2, type GameStateV2 } from "@/engine/game-v2/state";
 import type { PlayableCardId } from "@/engine/cards-v2/types";
 import { GameV2HotseatPrototype } from "@/ui/GameV2HotseatPrototype";
-import { submitSelectedHotseatSell } from "@/ui/hotseat-prototype-controller";
+import {
+  submitSelectedHotseatLiquidation,
+  submitSelectedHotseatSell,
+} from "@/ui/hotseat-prototype-controller";
 import {
   clearHotseatSessionStorage,
   loadHotseatSessionFromStorage,
@@ -20,6 +23,7 @@ import {
   hideHotseatHand,
   resetHotseatSession,
   revealHotseatHand,
+  setHotseatBoundaryDraft,
   setHotseatDraft,
   submitHotseatCommand,
   toHotseatViewModel,
@@ -33,6 +37,7 @@ import {
   selectHotseatBuildPlan,
   selectHotseatDevelopPlan,
   selectHotseatMerchantFreeDevelopSelection,
+  selectHotseatLiquidationPrefix,
   selectHotseatNetworkLink,
   selectHotseatSellNextOption,
   selectedHotseatBuildCommand,
@@ -69,7 +74,12 @@ export default function DevPage() {
   });
   const preserveRestoreNotice = useRef(false);
   const model = useMemo(
-    () => toHotseatPrototypeModel(toHotseatViewModel(session), session.state),
+    () =>
+      toHotseatPrototypeModel(
+        toHotseatViewModel(session),
+        session.state,
+        session.draft,
+      ),
     [session],
   );
 
@@ -430,6 +440,64 @@ export default function DevPage() {
     setSession(submitSelectedHotseatSell);
   }
 
+  function acknowledgeLiquidation(seat: string): void {
+    setSession((current) => {
+      const boundary = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+        current.draft,
+      ).boundary;
+      if (boundary?.kind !== "round_settlement") return current;
+      const progress = boundary.liquidation?.seats.find((candidate) =>
+        candidate.seat === seat
+      );
+      if (
+        progress === undefined ||
+        progress.acknowledged ||
+        progress.coverage === "shortfall"
+      ) return current;
+      return setHotseatBoundaryDraft(
+        current,
+        selectHotseatLiquidationPrefix(
+          current.draft,
+          current.state.revision,
+          seat,
+          [],
+        ),
+      );
+    });
+  }
+
+  function liquidateIndustry(seat: string, buildSpaceId: string): void {
+    setSession((current) => {
+      const boundary = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+        current.draft,
+      ).boundary;
+      if (boundary?.kind !== "round_settlement") return current;
+      const choice = boundary.liquidation?.seats
+        .find((candidate) => candidate.seat === seat)
+        ?.nextChoices.find((candidate) =>
+          candidate.buildSpaceId === buildSpaceId
+        );
+      if (choice === undefined) return current;
+      return setHotseatBoundaryDraft(
+        current,
+        selectHotseatLiquidationPrefix(
+          current.draft,
+          current.state.revision,
+          seat,
+          choice.choicesAfterAppend,
+        ),
+      );
+    });
+  }
+
+  function clearLiquidation(): void {
+    setSession((current) => setHotseatBoundaryDraft(current, null));
+  }
+
   return (
     <main className="min-h-screen bg-slate-100 px-3 py-4 text-slate-950 dark:bg-neutral-900 dark:text-neutral-100 sm:px-5 lg:px-8">
       <div className="mx-auto max-w-[1800px] space-y-4">
@@ -497,12 +565,15 @@ export default function DevPage() {
 
         <GameV2HotseatPrototype
           model={model}
+          onAcknowledgeLiquidation={acknowledgeLiquidation}
           onAppendSellSale={appendSellSale}
           onBuild={submitBuild}
           onClearSell={clearSell}
+          onClearLiquidation={clearLiquidation}
           onDevelop={submitDevelop}
           onHide={() => setSession(hideHotseatHand)}
           onLoan={() => submitCardAction("LOAN")}
+          onLiquidateIndustry={liquidateIndustry}
           onNetwork={submitNetwork}
           onPass={() => submitCardAction("PASS")}
           onResolveEra={() =>
@@ -520,19 +591,7 @@ export default function DevPage() {
           onSelectCard={selectCard}
           onSelectNetworkLink={selectNetworkLink}
           onSelectSellNextOption={selectSellNextOption}
-          onSettleRound={() =>
-            setSession((current) => {
-              const choices = model.boundary?.kind === "round_settlement"
-                ? model.boundary.automaticLiquidationChoices
-                : null;
-              return choices === null
-                ? current
-                : submitHotseatCommand(current, {
-                    type: "SETTLE_ROUND",
-                    liquidationChoices: choices,
-                  });
-            })
-          }
+          onSettleRound={() => setSession(submitSelectedHotseatLiquidation)}
           onToggleScoutCard={toggleScoutCard}
         />
       </div>
