@@ -6,11 +6,11 @@ Last updated: 2026-08-07
 
 - Active development branch: `agent/engine-alpha`
 - Draft pull request: <https://github.com/gbuchdahl/brass-birmingham/pull/2>
-- Latest verified checkpoint: hot-seat walking skeleton and legal selectors
-  (see branch HEAD)
+- Latest verified checkpoint: deterministic local hot-seat milestone complete
+  (fresh isolated gate passed 2026-08-07)
 - Full local verification: `pnpm check`
 
-The project is currently **engine-first**, with a deliberately plain but
+The completed milestone is **engine-first**, with a deliberately plain but
 interactive hot-seat prototype at `/dev`. It supports privacy-safe device
 handoff, exact industry Build and Develop plans, Pass, Loan, Scout, exact Canal
 and progressive Rail Network selection, progressive exact Sell choices, exact
@@ -115,6 +115,11 @@ deterministic rounds through both eras.
   branch/PR, exact selector and privacy contracts, rules-data workflow,
   verification commands/counts, important rule checkpoints, and only genuine
   non-blocking follow-ups. The obsolete M0–M4 skeleton notes are retired.
+- A final isolated-worktree completion gate at implementation commit `3d2feaf`:
+  pinned toolchain, frozen install of 412 packages, generated-data checks,
+  ESLint, TypeScript, 49/49 Vitest files and 634/634 tests, production build,
+  and 9/9 Playwright/axe scenarios all passed. The fresh checkout remained
+  git-clean.
 - Correct no-board-presence exceptions for a player's first Industry-card Build
   and first Network link.
 
@@ -240,7 +245,7 @@ the revision-9 Player 2 handoff, and restore it privately after reload.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
 clean. The verified checkpoint has 49 test files / 634 tests plus the production
-build. Start it with:
+build and 9 production-browser tests. Start it with:
 
 ```bash
 pnpm dev
@@ -248,16 +253,21 @@ pnpm dev
 
 Then open <http://localhost:3000/dev>.
 
-## Next checkpoints
+## Post-milestone follow-ups
 
-1. Run the final fresh-install gate: frozen dependency install, generated-data
-   checks, lint, typecheck, unit tests, production build, and browser/
-   accessibility coverage.
+These are useful extensions, not blockers for the verified local hot-seat goal:
+
+1. Add deeper full-round browser journeys for 3 and 4 players; complete engine
+   and replay journeys already cover both counts.
+2. Broaden axe scans across every progressive branch.
+3. Strengthen property/fuzz testing.
+4. Retire the legacy generic `attemptable` Network status and placeholder V1
+   industry-value data after confirming no compatibility consumer remains.
 
 ## Goal and non-goals
 
-The current milestone is a deterministic, rules-complete Brass: Birmingham
-engine for 2-4 local players, covering both eras, final scoring,
+The verified-complete milestone is a deterministic, rules-complete Brass:
+Birmingham engine for 2-4 local players, covering both eras, final scoring,
 serialization/replay, and a hot-seat development UI.
 
 Online multiplayer, matchmaking, authentication, AI opponents, and deployment

@@ -14,9 +14,9 @@ longer accurate; use this file and `docs/PROGRESS.md` as the durable handoff.
   both eras and final scoring.
 - Explicitly out of scope: online multiplayer, authentication, matchmaking, AI
   opponents, deployment, and fancy art.
-- Status: completion candidate. The implementation and browser scenarios are in
-  place; run the final fresh-install gate below before declaring the milestone
-  complete.
+- Status: verified complete. On 2026-08-07, an isolated checkout of implementation
+  commit `3d2feaf` passed frozen install, the full code/build gate, and all nine
+  production browser/accessibility scenarios with a clean worktree.
 
 ## Start here
 
@@ -76,6 +76,10 @@ production Next.js build. `pnpm test:e2e` separately builds/serves production
 and runs Playwright/axe. At this handoff, the expected local results are 49
 Vitest files / 634 tests and 9 Playwright tests. Confirm the exact current counts
 rather than copying them forward after new work.
+
+The completion gate ran every command above in a separate fresh worktree at
+`3d2feaf`; dependency installation was frozen, all checks passed, and the
+checkout remained clean afterward.
 
 CI runs frozen install, verification, Chromium installation, the production
 browser gate, and uploads the Playwright report.
