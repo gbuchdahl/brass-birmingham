@@ -35,10 +35,14 @@ rules artifacts are checked for staleness as part of both commands.
 
 The `/dev` route is an intentionally plain hot-seat walking skeleton backed by
 the authoritative `GameStateV2` command reducer. Pass the device, reveal only
-the current player's hand, and use selector-backed industry Build, Pass, Loan,
-Scout, Develop, or Canal Network actions. Build choices include the exact board
-space, industry tile, resource sources, and total cost. Develop choices include
-one or two ordered top tiles and the exact board/market iron sources and price.
+the current player's hand, and use selector-backed industry Build, Develop,
+Sell, Pass, Loan, Scout, or Canal Network actions. Build choices include the
+exact board space, industry tile, resource sources, and total cost; their
+receipts also explain automatic coal/iron market sales, cubes left on the tile,
+and whether income advanced. Develop choices include one or two ordered top
+tiles and the exact board/market iron sources and price. Sell choices progress
+one exact product, Merchant, and mandatory beer source at a time, and any
+nonempty accepted prefix can be submitted as the completed action.
 Player count and seed changes take effect when you choose **New / reset game**.
 Progress is corruption-checked and autosaved in this browser; reload always
 returns to a privacy-safe handoff screen. If play enters a Merchant free-Develop

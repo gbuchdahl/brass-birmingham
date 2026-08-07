@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createGameV2, type GameStateV2 } from "@/engine/game-v2/state";
 import type { PlayableCardId } from "@/engine/cards-v2/types";
 import { GameV2HotseatPrototype } from "@/ui/GameV2HotseatPrototype";
+import { submitSelectedHotseatSell } from "@/ui/hotseat-prototype-controller";
 import {
   clearHotseatSessionStorage,
   loadHotseatSessionFromStorage,
@@ -24,6 +25,8 @@ import {
   toHotseatViewModel,
 } from "@/ui/hotseat-session";
 import {
+  appendSelectedHotseatSellSale,
+  clearHotseatSellDraft,
   normalizeHotseatBuildDraft,
   normalizeHotseatDevelopDraft,
   selectHotseatActionCard,
@@ -31,6 +34,7 @@ import {
   selectHotseatDevelopPlan,
   selectHotseatMerchantFreeDevelopSelection,
   selectHotseatNetworkLink,
+  selectHotseatSellNextOption,
   selectedHotseatBuildCommand,
   selectedHotseatDevelopCommand,
   selectedHotseatCardId,
@@ -162,11 +166,12 @@ export default function DevPage() {
       );
       if (
         card === undefined ||
-        (!card.canPass && !card.canLoan && !card.canNetwork && !card.canDevelop)
+        (!card.canPass && !card.canLoan && !card.canNetwork && !card.canDevelop &&
+          !card.canSell)
       ) return current;
       const withCard = setHotseatDraft(
         current,
-        selectHotseatActionCard(current.draft, cardId),
+        selectHotseatActionCard(clearHotseatSellDraft(current.draft), cardId),
       );
       const nextPrivate = toHotseatPrototypeModel(
         toHotseatViewModel(withCard),
@@ -382,6 +387,49 @@ export default function DevPage() {
     });
   }
 
+  function selectSellNextOption(optionId: string): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (privateModel === null) return current;
+      return setHotseatDraft(
+        current,
+        selectHotseatSellNextOption(
+          current.draft,
+          optionId,
+          privateModel.legal.sell.nextOptions.map((option) => option.id),
+        ),
+      );
+    });
+  }
+
+  function appendSellSale(): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      return privateModel === null
+        ? current
+        : setHotseatDraft(
+            current,
+            appendSelectedHotseatSellSale(current.draft, privateModel),
+          );
+    });
+  }
+
+  function clearSell(): void {
+    setSession((current) =>
+      setHotseatDraft(current, clearHotseatSellDraft(current.draft))
+    );
+  }
+
+  function submitSell(): void {
+    setSession(submitSelectedHotseatSell);
+  }
+
   return (
     <main className="min-h-screen bg-slate-100 px-3 py-4 text-slate-950 dark:bg-neutral-900 dark:text-neutral-100 sm:px-5 lg:px-8">
       <div className="mx-auto max-w-[1800px] space-y-4">
@@ -449,7 +497,9 @@ export default function DevPage() {
 
         <GameV2HotseatPrototype
           model={model}
+          onAppendSellSale={appendSellSale}
           onBuild={submitBuild}
+          onClearSell={clearSell}
           onDevelop={submitDevelop}
           onHide={() => setSession(hideHotseatHand)}
           onLoan={() => submitCardAction("LOAN")}
@@ -463,11 +513,13 @@ export default function DevPage() {
           onResolveMerchantFreeDevelop={resolveMerchantFreeDevelop}
           onReveal={() => setSession(revealHotseatHand)}
           onScout={submitScout}
+          onSell={submitSell}
           onSelectBuildPlan={selectBuildPlan}
           onSelectDevelopPlan={selectDevelopPlan}
           onSelectMerchantFreeDevelop={selectMerchantFreeDevelop}
           onSelectCard={selectCard}
           onSelectNetworkLink={selectNetworkLink}
+          onSelectSellNextOption={selectSellNextOption}
           onSettleRound={() =>
             setSession((current) => {
               const choices = model.boundary?.kind === "round_settlement"

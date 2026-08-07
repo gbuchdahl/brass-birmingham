@@ -10,6 +10,7 @@ type GameV2HotseatPrototypeProps = {
   readonly onSelectNetworkLink: (linkId: string) => void;
   readonly onSelectBuildPlan: (planId: string) => void;
   readonly onSelectDevelopPlan: (planId: string) => void;
+  readonly onSelectSellNextOption: (optionId: string) => void;
   readonly onSelectMerchantFreeDevelop: (selectionId: string) => void;
   readonly onPass: () => void;
   readonly onLoan: () => void;
@@ -17,6 +18,9 @@ type GameV2HotseatPrototypeProps = {
   readonly onNetwork: () => void;
   readonly onBuild: () => void;
   readonly onDevelop: () => void;
+  readonly onAppendSellSale: () => void;
+  readonly onClearSell: () => void;
+  readonly onSell: () => void;
   readonly onResolveMerchantFreeDevelop: () => void;
   readonly onSettleRound: () => void;
   readonly onResolveEra: () => void;
@@ -44,6 +48,7 @@ export function GameV2HotseatPrototype({
   onSelectNetworkLink,
   onSelectBuildPlan,
   onSelectDevelopPlan,
+  onSelectSellNextOption,
   onSelectMerchantFreeDevelop,
   onPass,
   onLoan,
@@ -51,6 +56,9 @@ export function GameV2HotseatPrototype({
   onNetwork,
   onBuild,
   onDevelop,
+  onAppendSellSale,
+  onClearSell,
+  onSell,
   onResolveMerchantFreeDevelop,
   onSettleRound,
   onResolveEra,
@@ -60,6 +68,9 @@ export function GameV2HotseatPrototype({
   const selectedScoutCardIds = model.private?.selectedScoutCardIds ?? [];
   const selectedDevelopPlan = model.private?.legal.develop.plans.find(
     (plan) => plan.id === model.private?.selectedDevelopPlanId,
+  ) ?? null;
+  const selectedSellNextOption = model.private?.legal.sell.nextOptions.find(
+    (option) => option.id === model.private?.selectedSellNextOptionId,
   ) ?? null;
 
   return (
@@ -72,7 +83,7 @@ export function GameV2HotseatPrototype({
                 HOT-SEAT ALPHA
               </span>
               <span className="rounded border border-slate-400 px-2 py-1 text-xs font-bold tracking-wide">
-                BUILD + DEVELOP + PASS + LOAN + SCOUT + CANAL NETWORK
+                BUILD + DEVELOP + SELL + PASS + LOAN + SCOUT + CANAL NETWORK
               </span>
             </div>
             <h1 className="text-2xl font-bold">Brass: Birmingham playable prototype</h1>
@@ -279,7 +290,7 @@ export function GameV2HotseatPrototype({
                 <Emoji>🃏</Emoji> {model.private.seat}&apos;s private hand
               </h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-neutral-300">
-                Choose one action card for Build, Develop, Pass, Loan, or Canal Network; or toggle exactly three regular cards to Scout.
+                Choose one action card for Build, Develop, Sell, Pass, Loan, or Canal Network; or toggle exactly three regular cards to Scout.
               </p>
             </div>
             <button className={secondaryButton} onClick={onHide} type="button">
@@ -313,7 +324,7 @@ export function GameV2HotseatPrototype({
                         aria-label={`Use ${card.label} as the action card`}
                         aria-pressed={selected}
                         className={secondaryButton}
-                        disabled={!card.canPass && !card.canLoan && !card.canNetwork && !card.canDevelop}
+                        disabled={!card.canPass && !card.canLoan && !card.canNetwork && !card.canDevelop && !card.canSell}
                         onClick={() => onSelectCard(card.id)}
                         type="button"
                       >
@@ -398,6 +409,116 @@ export function GameV2HotseatPrototype({
                 Choose one complete selector-approved Develop plan.
               </p>
             ) : null}
+          </fieldset>
+
+          <fieldset className={`${inset} mt-4`}>
+            <legend className="px-1 text-sm font-bold">
+              <Emoji>📦</Emoji> Sell industries
+            </legend>
+
+            {model.private.legal.sell.currentPlan !== null ? (
+              <div className="mt-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-neutral-400">
+                  Accepted ordered sales
+                </p>
+                <ol className="mt-2 grid gap-2">
+                  {model.private.legal.sell.currentPlan.sales.map((sale, index) => (
+                    <li className="rounded border border-slate-300 bg-white p-2 text-sm dark:border-neutral-700 dark:bg-neutral-950" key={`${sale.productIndustryId}:${index}`}>
+                      <strong>
+                        {index + 1}. <span aria-hidden="true">{sale.productEmoji}</span>{" "}
+                        {sale.productLabel} level {sale.productLevel} at {sale.productLocationLabel}
+                      </strong>
+                      <p className="mt-1 text-xs">
+                        Product → Merchant at {sale.merchantLabel} → {sale.beerSummary}
+                      </p>
+                      <p className="mt-1 text-xs">Income: {sale.incomeSummary}</p>
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-2 text-xs">
+                  <strong>Combined rewards:</strong>{" "}
+                  {model.private.legal.sell.currentPlan.rewardSummary}
+                  {model.private.legal.sell.currentPlan.pendingFreeDevelopCount > 0
+                    ? ` · pending ${model.private.legal.sell.currentPlan.pendingFreeDevelopCount} free Develop`
+                    : ""}
+                </p>
+              </div>
+            ) : null}
+
+            {model.private.legal.sell.availability === "exact" &&
+                model.private.legal.sell.nextOptions.length > 0 ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                <label className="grid gap-1 text-sm font-semibold">
+                  Next exact sale
+                  <select
+                    aria-label="Next Sell option"
+                    className="rounded border border-slate-400 bg-white px-3 py-2 font-normal text-slate-950 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                    onChange={(event) => onSelectSellNextOption(event.target.value)}
+                    value={model.private.selectedSellNextOptionId ?? ""}
+                  >
+                    <option value="">Choose product, Merchant, and mandatory beer…</option>
+                    {model.private.legal.sell.nextOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.sale.productEmoji} {option.sale.productLabel} level {option.sale.productLevel} at {option.sale.productLocationLabel} → {option.sale.merchantLabel} → {option.sale.beerSummary} · {option.sale.incomeSummary}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className={secondaryButton}
+                  disabled={!model.private.legal.sell.selectedNextIsLegal}
+                  onClick={onAppendSellSale}
+                  type="button"
+                >
+                  <Emoji>➕</Emoji> Add this sale
+                </button>
+              </div>
+            ) : model.private.legal.sell.availability === "disabled" ? (
+              <p className="mt-2 text-sm">
+                <strong>Sell unavailable:</strong>{" "}
+                {model.private.legal.sell.reason?.message ??
+                  "No exact Sell choices are available."}
+              </p>
+            ) : (
+              <p className="mt-2 text-sm">No additional sale can be appended.</p>
+            )}
+
+            {selectedSellNextOption !== null ? (
+              <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-2 text-xs dark:border-amber-800 dark:bg-amber-950/30">
+                <p>
+                  <strong>Next:</strong>{" "}
+                  {selectedSellNextOption.sale.productEmoji}{" "}
+                  {selectedSellNextOption.sale.productLabel} → {selectedSellNextOption.sale.merchantLabel} → {selectedSellNextOption.sale.beerSummary}
+                </p>
+                <p className="mt-1">
+                  Resulting rewards: {selectedSellNextOption.plan.rewardSummary}
+                  {selectedSellNextOption.plan.pendingFreeDevelopCount > 0
+                    ? ` · triggers ${selectedSellNextOption.plan.pendingFreeDevelopCount} free Develop`
+                    : ""}
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                className={primaryButton}
+                disabled={model.private.legal.sell.currentPlan === null}
+                onClick={onSell}
+                type="button"
+              >
+                <Emoji>📦</Emoji> Submit {model.private.legal.sell.currentPlan?.sales.length ?? 0} sale{model.private.legal.sell.currentPlan?.sales.length === 1 ? "" : "s"}
+              </button>
+              <button
+                className={secondaryButton}
+                disabled={model.private.legal.sell.currentPlan === null &&
+                  model.private.selectedSellNextOptionId === null &&
+                  model.private.legal.sell.reason?.code !== "INVALID_SALE_PREFIX"}
+                onClick={onClearSell}
+                type="button"
+              >
+                Clear / restart Sell
+              </button>
+            </div>
           </fieldset>
 
           <fieldset className={`${inset} mt-4`}>

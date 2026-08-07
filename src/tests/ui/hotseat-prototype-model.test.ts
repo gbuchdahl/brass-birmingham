@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { WILD_LOCATION_CARD_ID } from "@/engine/cards-v2";
 import { highestSpaceForIncomeLevel } from "@/engine/economy/income";
+import type { GameV2CommandOutcome } from "@/engine/game-v2/commands";
 import { createGameV2, type GameStateV2 } from "@/engine/game-v2/state";
 import { BOARD_V2 } from "@/engine/rules/generated/board-v2";
+import type { IndustryTileKind } from "@/engine/rules/generated/industry-tiles-v2";
 import {
   createHotseatSession,
   hideHotseatHand,
@@ -12,20 +14,26 @@ import {
   toHotseatViewModel,
 } from "@/ui/hotseat-session";
 import {
+  appendSelectedHotseatSellSale,
   automaticHotseatLiquidationChoices,
+  clearHotseatSellDraft,
+  describeHotseatOutcome,
   hotseatCardDraft,
   hotseatCardLabel,
   hotseatBuildPlanId,
   hotseatDevelopPlanId,
+  hotseatSellPlanId,
   legalHotseatScoutTriple,
   normalizeHotseatNetworkLinkId,
   normalizeHotseatBuildDraft,
   normalizeHotseatDevelopDraft,
+  normalizeHotseatSellDraft,
   normalizeHotseatScoutSelection,
   selectHotseatActionCard,
   selectHotseatBuildPlan,
   selectHotseatDevelopPlan,
   selectHotseatNetworkLink,
+  selectHotseatSellNextOption,
   selectedHotseatCardId,
   selectedHotseatBuildCommand,
   selectedHotseatBuildPlanId,
@@ -37,6 +45,9 @@ import {
   selectHotseatMerchantFreeDevelopSelection,
   selectedHotseatMerchantFreeDevelopCommand,
   selectedHotseatMerchantFreeDevelopSelectionId,
+  selectedHotseatSellCommand,
+  selectedHotseatSellNextOptionId,
+  selectedHotseatSellPrefix,
   selectedHotseatScoutCardIds,
   toggleHotseatScoutCard,
   toHotseatPrototypeModel,
@@ -45,6 +56,7 @@ import {
   deserializeHotseatSession,
   serializeHotseatSession,
 } from "@/ui/hotseat-persistence";
+import { submitSelectedHotseatSell } from "@/ui/hotseat-prototype-controller";
 
 function pendingFreeDevelop(
   state: GameStateV2,
@@ -187,7 +199,244 @@ function withBoardIron(state: GameStateV2): GameStateV2 {
   };
 }
 
+function placeTopTile(
+  state: GameStateV2,
+  owner: string,
+  spaceId: string,
+  locationId: string,
+  industry: IndustryTileKind,
+  beer = 0,
+): GameStateV2 {
+  const player = state.players[owner];
+  const stack = player.industryInventory.stacks[industry];
+  const tileId = stack[0];
+  if (tileId === undefined) throw new Error(`Expected ${owner}'s ${industry}`);
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      [owner]: {
+        ...player,
+        industryInventory: {
+          ...player.industryInventory,
+          stacks: {
+            ...player.industryInventory.stacks,
+            [industry]: stack.slice(1),
+          },
+        },
+      },
+    },
+    board: {
+      ...state.board,
+      placedIndustries: {
+        ...state.board.placedIndustries,
+        [spaceId]: {
+          owner,
+          tileId,
+          locationId,
+          spaceId,
+          resources: { coal: 0, iron: 0, beer },
+          flipped: false,
+        },
+      },
+    },
+  };
+}
+
+function linkPath(
+  from: string,
+  to: string,
+  era: GameStateV2["era"],
+): readonly string[] {
+  const queue: Array<{
+    readonly locationId: string;
+    readonly links: readonly string[];
+  }> = [{ locationId: from, links: [] }];
+  const visited = new Set([from]);
+  for (let index = 0; index < queue.length; index += 1) {
+    const current = queue[index];
+    if (current.locationId === to) return current.links;
+    for (const link of BOARD_V2.links) {
+      if (!(link.eras as readonly string[]).includes(era)) continue;
+      if (!(link.adjacentLocations as readonly string[]).includes(
+        current.locationId,
+      )) continue;
+      for (const locationId of link.adjacentLocations) {
+        if (visited.has(locationId)) continue;
+        visited.add(locationId);
+        queue.push({
+          locationId,
+          links: [...current.links, link.id],
+        });
+      }
+    }
+  }
+  throw new Error(`No ${era} path from ${from} to ${to}`);
+}
+
+function withUniversalMerchantAt(
+  state: GameStateV2,
+  locationId: string,
+): { readonly state: GameStateV2; readonly merchantSpaceId: string } {
+  const target = state.merchants.spaces.find(
+    (space) => space.active && space.locationId === locationId,
+  );
+  const donor = state.merchants.spaces.find(
+    (space) =>
+      space.active && space.demandIndustries.length === 3 && space.beer === 1,
+  );
+  if (
+    target === undefined || donor === undefined ||
+    target.tileId === null || donor.tileId === null
+  ) throw new Error(`Expected active universal Merchant at ${locationId}`);
+  if (target.merchantSpaceId === donor.merchantSpaceId) {
+    return { state, merchantSpaceId: target.merchantSpaceId };
+  }
+  return {
+    state: {
+      ...state,
+      merchants: {
+        ...state.merchants,
+        spaces: state.merchants.spaces.map((space) => {
+          if (space.merchantSpaceId === target.merchantSpaceId) {
+            return {
+              ...space,
+              tileId: donor.tileId,
+              demandIndustries: [...donor.demandIndustries],
+              beer: donor.beer,
+            };
+          }
+          if (space.merchantSpaceId === donor.merchantSpaceId) {
+            return {
+              ...space,
+              tileId: target.tileId,
+              demandIndustries: [...target.demandIndustries],
+              beer: target.beer,
+            };
+          }
+          return space;
+        }),
+      },
+    },
+    merchantSpaceId: target.merchantSpaceId,
+  };
+}
+
+function sellFixture(
+  seed: string,
+  merchantLocationId: "merchant_oxford" | "merchant_gloucester",
+  twoProducts = false,
+): { readonly state: GameStateV2; readonly merchantSpaceId: string } {
+  const merchant = withUniversalMerchantAt(
+    createGameV2(["alice", "bob"], seed),
+    merchantLocationId,
+  );
+  let state = placeTopTile(
+    merchant.state,
+    "alice",
+    "birmingham_1",
+    "birmingham",
+    "manufacturer",
+  );
+  if (twoProducts) {
+    state = placeTopTile(
+      state,
+      "alice",
+      "birmingham_2",
+      "birmingham",
+      "manufacturer",
+    );
+    state = placeTopTile(
+      state,
+      "alice",
+      "farm_brewery_cannock_1",
+      "farm_brewery_cannock",
+      "brewery",
+      1,
+    );
+  }
+  const links = linkPath("birmingham", merchantLocationId, state.era);
+  state = {
+    ...state,
+    players: {
+      ...state.players,
+      bob: {
+        ...state.players.bob,
+        linkTokensRemaining:
+          state.players.bob.linkTokensRemaining - links.length,
+      },
+    },
+    board: {
+      ...state.board,
+      builtLinks: {
+        ...state.board.builtLinks,
+        ...Object.fromEntries(links.map((linkId) => [linkId, "bob"])),
+      },
+    },
+  };
+  return { state, merchantSpaceId: merchant.merchantSpaceId };
+}
+
+function revealedSellFixture(fixture: ReturnType<typeof sellFixture>) {
+  const revealed = revealHotseatHand(createHotseatSession(fixture.state));
+  const cardId = fixture.state.cards.hands.alice[0];
+  const session = setHotseatDraft(
+    revealed,
+    selectHotseatActionCard(revealed.draft, cardId),
+  );
+  const model = toHotseatPrototypeModel(
+    toHotseatViewModel(session),
+    session.state,
+  );
+  return { ...fixture, session, model, cardId };
+}
+
 describe("hot-seat prototype presentation model", () => {
+  it("explains partial Iron Works production before the tile flips", () => {
+    const outcome = {
+      kind: "player_action",
+      actionType: "BUILD",
+      effect: {
+        type: "INDUSTRY_BUILT",
+        seat: "alice",
+        actionsConsumed: 1,
+        discardedCardId: "industry-iron-works-01",
+        placement: {
+          owner: "alice",
+          buildSpaceId: "birmingham_3",
+          locationId: "birmingham",
+          tileId: "iron-1-a",
+          faceId: "iron-1",
+          industry: "iron",
+          level: 1,
+          resources: { coal: 0, iron: 2, beer: 0 },
+          flipped: false,
+        },
+        overbuilt: null,
+        resourceSources: [
+          { resource: "coal", kind: "market", unitPrice: 2 },
+        ],
+        flippedProviderSpaceIds: [],
+        printedBuildCost: 5,
+        resourceMarketCost: 2,
+        moneySpent: 7,
+        productionRevenue: 2,
+        moneyChange: -5,
+        productionSold: { coal: 0, iron: 2 },
+        incomeAwards: [],
+      },
+      pendingFollowUp: false,
+      turnComplete: true,
+      roundComplete: false,
+      refilledCards: 1,
+    } as const satisfies GameV2CommandOutcome;
+
+    expect(describeHotseatOutcome(outcome)).toBe(
+      "alice: BUILD accepted. 2 of 4 iron cubes sold to the market for £2. " +
+        "2 remain on the Iron Works, so it has not flipped and income has not advanced yet. Turn complete.",
+    );
+  });
+
   it("projects a privacy-safe handoff and a labeled revealed hand", () => {
     const state = createGameV2(["alice", "bob"], "prototype-handoff");
     const session = createHotseatSession(state);
@@ -628,6 +877,385 @@ describe("hot-seat prototype presentation model", () => {
         message: "The active player has no affordable legal Develop selection.",
       },
     });
+  });
+
+  it("keeps Sell choices private and advances one exact sale layer at a time", () => {
+    const fixture = sellFixture(
+      "prototype-sell-progressive",
+      "merchant_oxford",
+      true,
+    );
+    const hiddenSession = createHotseatSession(fixture.state);
+    const hidden = toHotseatPrototypeModel(
+      toHotseatViewModel(hiddenSession),
+      hiddenSession.state,
+    );
+    const ready = revealedSellFixture(fixture);
+    const initialSell = ready.model.private?.legal.sell;
+
+    expect(hidden.private).toBeNull();
+    expect(JSON.stringify(hidden)).not.toContain("sellPrefix");
+    expect(JSON.stringify(hidden)).not.toContain("sellNextOptionId");
+    expect(ready.model.private?.cards.every((card) => card.canSell)).toBe(true);
+    expect(initialSell).toMatchObject({
+      availability: "exact",
+      selectedSales: [],
+      currentPlan: null,
+      selectedNextOptionId: null,
+      selectedNextIsLegal: false,
+      reason: null,
+    });
+    const first = initialSell?.nextOptions.find(
+      (option) =>
+        option.sale.productIndustryId === "birmingham_1" &&
+        option.plan.selection.sales[0].merchantSpaceId ===
+          fixture.merchantSpaceId,
+    );
+    if (first === undefined) throw new Error("Expected the first exact sale");
+    expect(first.id).toBe(hotseatSellPlanId(first.plan.selection));
+    expect(first.sale).toMatchObject({
+      productLabel: "Manufacturer",
+      productEmoji: "🏭",
+      productLocationLabel: "Birmingham",
+      productLevel: 1,
+      merchantLabel: "Oxford",
+    });
+    expect(first.sale.beerSummary).toContain("mandatory Merchant beer");
+    expect(first.sale.incomeSummary).toContain("printed income spaces");
+
+    const withNext = setHotseatDraft(
+      ready.session,
+      selectHotseatSellNextOption(
+        ready.session.draft,
+        first.id,
+        initialSell?.nextOptions.map((option) => option.id) ?? [],
+      ),
+    );
+    const nextModel = toHotseatPrototypeModel(
+      toHotseatViewModel(withNext),
+      withNext.state,
+    );
+    expect(nextModel.private?.legal.sell).toMatchObject({
+      selectedNextOptionId: first.id,
+      selectedNextIsLegal: true,
+    });
+    const oneSale = setHotseatDraft(
+      withNext,
+      nextModel.private === null
+        ? withNext.draft
+        : appendSelectedHotseatSellSale(withNext.draft, nextModel.private),
+    );
+    const oneSaleModel = toHotseatPrototypeModel(
+      toHotseatViewModel(oneSale),
+      oneSale.state,
+    );
+    const oneSalePlan = oneSaleModel.private?.legal.sell.currentPlan;
+    expect(oneSalePlan?.sales).toHaveLength(1);
+    expect(oneSaleModel.private?.legal.sell.selectedSales).toEqual(
+      oneSalePlan?.selection.sales,
+    );
+    expect(selectedHotseatSellPrefix(oneSale.draft)).toEqual(
+      oneSalePlan?.selection.sales,
+    );
+    expect(selectedHotseatSellNextOptionId(oneSale.draft)).toBeNull();
+
+    const second = oneSaleModel.private?.legal.sell.nextOptions.find(
+      (option) =>
+        option.sale.productIndustryId === "birmingham_2" &&
+        option.plan.selection.sales.at(-1)?.beerSource.kind === "brewery",
+    );
+    if (second === undefined) throw new Error("Expected the continuation sale");
+    const twoSelected = setHotseatDraft(
+      oneSale,
+      selectHotseatSellNextOption(
+        oneSale.draft,
+        second.id,
+        oneSaleModel.private?.legal.sell.nextOptions.map((option) => option.id) ?? [],
+      ),
+    );
+    const twoSelectedModel = toHotseatPrototypeModel(
+      toHotseatViewModel(twoSelected),
+      twoSelected.state,
+    );
+    const twoSale = setHotseatDraft(
+      twoSelected,
+      twoSelectedModel.private === null
+        ? twoSelected.draft
+        : appendSelectedHotseatSellSale(
+            twoSelected.draft,
+            twoSelectedModel.private,
+          ),
+    );
+    const twoSaleModel = toHotseatPrototypeModel(
+      toHotseatViewModel(twoSale),
+      twoSale.state,
+    );
+    expect(twoSaleModel.private?.legal.sell.currentPlan?.sales).toHaveLength(2);
+    expect(twoSaleModel.private?.legal.sell.currentPlan?.sales.map(
+      (sale) => sale.productIndustryId,
+    )).toEqual(["birmingham_1", "birmingham_2"]);
+    expect(twoSaleModel.private?.legal.sell.currentPlan?.sales[1].beerSummary)
+      .toContain("mandatory Brewery beer");
+  });
+
+  it("fails closed for stale Sell state and clears it on an action-card change", () => {
+    const fixture = sellFixture(
+      "prototype-sell-stale",
+      "merchant_oxford",
+      true,
+    );
+    const revealed = revealHotseatHand(createHotseatSession(fixture.state));
+    const cardId = fixture.state.cards.hands.alice[0];
+    const malformed = setHotseatDraft(revealed, {
+      commandType: "SELL",
+      fields: {
+        cardId,
+        buildPlanId: "preserve-unrelated",
+        sellPrefix: [{ industryId: "missing", beerSource: null }],
+        sellNextOptionId: "stale-next",
+      },
+    });
+    const malformedModel = toHotseatPrototypeModel(
+      toHotseatViewModel(malformed),
+      malformed.state,
+    );
+
+    expect(selectedHotseatSellPrefix(malformed.draft)).toBeNull();
+    expect(malformedModel.private?.legal.sell).toMatchObject({
+      availability: "disabled",
+      currentPlan: null,
+      nextOptions: [],
+      selectedNextOptionId: null,
+      reason: { code: "INVALID_SALE_PREFIX" },
+    });
+    const normalized = normalizeHotseatSellDraft(
+      malformed.draft,
+      null,
+      [],
+    );
+    expect(normalized?.fields).not.toHaveProperty("sellPrefix");
+    expect(normalized?.fields).not.toHaveProperty("sellNextOptionId");
+    expect(normalized?.fields).toMatchObject({
+      buildPlanId: "preserve-unrelated",
+    });
+
+    const ready = revealedSellFixture(fixture);
+    const option = ready.model.private?.legal.sell.nextOptions[0];
+    if (option === undefined) throw new Error("Expected a Sell option");
+    const selected = selectHotseatSellNextOption(
+      ready.session.draft,
+      option.id,
+      ready.model.private?.legal.sell.nextOptions.map((item) => item.id) ?? [],
+    );
+    expect(selectedHotseatSellNextOptionId(selected)).toBe(option.id);
+    expect(selectedHotseatSellNextOptionId(
+      selectHotseatSellNextOption(selected, "stale", [option.id]),
+    )).toBeNull();
+    const changedCard = selectHotseatActionCard(
+      clearHotseatSellDraft(selected),
+      fixture.state.cards.hands.alice[1],
+    );
+    expect(selectedHotseatSellPrefix(changedCard)).toEqual([]);
+    expect(selectedHotseatSellNextOptionId(changedCard)).toBeNull();
+  });
+
+  it("submits a normal Sell and projects public product, beer, and player changes", () => {
+    const fixture = sellFixture(
+      "prototype-sell-normal",
+      "merchant_oxford",
+    );
+    const ready = revealedSellFixture(fixture);
+    const option = ready.model.private?.legal.sell.nextOptions.find(
+      (candidate) =>
+        candidate.sale.productIndustryId === "birmingham_1" &&
+        candidate.plan.selection.sales[0].merchantSpaceId ===
+          fixture.merchantSpaceId &&
+        candidate.plan.selection.sales[0].beerSource.kind === "merchant",
+    );
+    if (option === undefined) throw new Error("Expected a normal Sell option");
+    const withNext = setHotseatDraft(
+      ready.session,
+      selectHotseatSellNextOption(
+        ready.session.draft,
+        option.id,
+        ready.model.private?.legal.sell.nextOptions.map((item) => item.id) ?? [],
+      ),
+    );
+    const nextModel = toHotseatPrototypeModel(
+      toHotseatViewModel(withNext),
+      withNext.state,
+    );
+    const selected = setHotseatDraft(
+      withNext,
+      nextModel.private === null
+        ? withNext.draft
+        : appendSelectedHotseatSellSale(withNext.draft, nextModel.private),
+    );
+    const selectedModel = toHotseatPrototypeModel(
+      toHotseatViewModel(selected),
+      selected.state,
+    );
+    const plan = selectedModel.private?.legal.sell.currentPlan;
+    const command = selectedModel.private === null
+      ? null
+      : selectedHotseatSellCommand(selectedModel.private);
+    if (plan === null || plan === undefined || command === null) {
+      throw new Error("Expected a reducer-ready normal Sell");
+    }
+    const accepted = submitHotseatCommand(selected, command);
+    const publicModel = toHotseatPrototypeModel(
+      toHotseatViewModel(accepted),
+      accepted.state,
+    );
+    const merchant = accepted.state.merchants.spaces.find(
+      (space) => space.merchantSpaceId === fixture.merchantSpaceId,
+    );
+
+    expect(accepted.state.revision).toBe(fixture.state.revision + 1);
+    expect(accepted.state.board.placedIndustries.birmingham_1.flipped).toBe(true);
+    expect(merchant?.beer).toBe(0);
+    expect(accepted.state.players.alice.money).toBe(
+      fixture.state.players.alice.money + plan.moneyChange,
+    );
+    expect(accepted.state.players.alice.victoryPoints).toBe(
+      fixture.state.players.alice.victoryPoints + plan.victoryPointsChange,
+    );
+    expect(accepted.state.players.alice.incomeMarkerSpace).toBe(
+      fixture.state.players.alice.incomeMarkerSpace +
+        plan.incomeMarkerSpacesAdvanced,
+    );
+    expect(accepted.state.cards.discard).toContain(ready.cardId);
+    expect(accepted.state.cards.hands.alice).not.toContain(ready.cardId);
+    expect(accepted.state.currentSeat).toBe("bob");
+    expect(accepted.lastResult).toMatchObject({
+      ok: true,
+      outcome: { kind: "player_action", actionType: "SELL" },
+    });
+    expect(publicModel.handoff).toEqual({ nextSeat: "bob" });
+    expect(publicModel.private).toBeNull();
+    expect(publicModel.placedIndustries).toContainEqual(expect.objectContaining({
+      buildSpaceId: "birmingham_1",
+      flipped: true,
+    }));
+    expect(publicModel.public.merchants).toContainEqual(expect.objectContaining({
+      merchantSpaceId: fixture.merchantSpaceId,
+      beer: 0,
+    }));
+    expect(publicModel.public.players.find((player) => player.seat === "alice"))
+      .toMatchObject({
+        money: accepted.state.players.alice.money,
+        incomeMarkerSpace: accepted.state.players.alice.incomeMarkerSpace,
+        victoryPoints: accepted.state.players.alice.victoryPoints,
+      });
+  });
+
+  it("hides Gloucester pending state, reloads it, then completes its parent Sell once", () => {
+    const fixture = sellFixture(
+      "prototype-sell-gloucester",
+      "merchant_gloucester",
+    );
+    const ready = revealedSellFixture(fixture);
+    const option = ready.model.private?.legal.sell.nextOptions.find(
+      (candidate) =>
+        candidate.sale.productIndustryId === "birmingham_1" &&
+        candidate.plan.pendingFreeDevelopCount === 1,
+    );
+    if (option === undefined) throw new Error("Expected Gloucester free Develop");
+    const withNext = setHotseatDraft(
+      ready.session,
+      selectHotseatSellNextOption(
+        ready.session.draft,
+        option.id,
+        ready.model.private?.legal.sell.nextOptions.map((item) => item.id) ?? [],
+      ),
+    );
+    const nextModel = toHotseatPrototypeModel(
+      toHotseatViewModel(withNext),
+      withNext.state,
+    );
+    const selected = setHotseatDraft(
+      withNext,
+      nextModel.private === null
+        ? withNext.draft
+        : appendSelectedHotseatSellSale(withNext.draft, nextModel.private),
+    );
+    const selectedModel = toHotseatPrototypeModel(
+      toHotseatViewModel(selected),
+      selected.state,
+    );
+    const sellCommand = selectedModel.private === null
+      ? null
+      : selectedHotseatSellCommand(selectedModel.private);
+    if (sellCommand === null) throw new Error("Expected a Gloucester Sell command");
+    const sold = submitSelectedHotseatSell(selected);
+    const pending = toHotseatPrototypeModel(
+      toHotseatViewModel(sold),
+      sold.state,
+    );
+
+    expect(sold.state.progress.phase).toBe("merchant_free_develop");
+    expect(sold.state.revision).toBe(1);
+    expect(sold.state.events.filter((event) => event.type === "ACTION_ACCEPTED"))
+      .toHaveLength(0);
+    expect(sold.state.board.placedIndustries.birmingham_1.flipped).toBe(true);
+    expect(pending.handoff).toEqual({ nextSeat: "alice" });
+    expect(pending.private).toBeNull();
+    expect(sold.draft).toBeNull();
+
+    const restored = deserializeHotseatSession(serializeHotseatSession(sold));
+    expect(restored.state.progress.phase).toBe("merchant_free_develop");
+    expect(restored.visibility).toEqual({ kind: "handoff", nextSeat: "alice" });
+    expect(restored.draft).toBeNull();
+    const followUpRevealed = revealHotseatHand(restored);
+    const followUpModel = toHotseatPrototypeModel(
+      toHotseatViewModel(followUpRevealed),
+      followUpRevealed.state,
+    );
+    const followUp = followUpModel.private?.merchantFreeDevelop;
+    const tileSelection = followUp?.selections[0];
+    if (followUp === null || followUp === undefined || tileSelection === undefined) {
+      throw new Error("Expected the existing Merchant follow-up selector");
+    }
+    const followUpSelected = setHotseatDraft(
+      followUpRevealed,
+      selectHotseatMerchantFreeDevelopSelection(
+        followUpRevealed.draft,
+        tileSelection.id,
+        followUp.selections.map((selection) => selection.id),
+      ),
+    );
+    const followUpSelectedModel = toHotseatPrototypeModel(
+      toHotseatViewModel(followUpSelected),
+      followUpSelected.state,
+    );
+    const followUpCommand = followUpSelectedModel.private === null
+      ? null
+      : selectedHotseatMerchantFreeDevelopCommand(
+          followUpSelectedModel.private,
+        );
+    if (followUpCommand === null) throw new Error("Expected follow-up command");
+    const resolved = submitHotseatCommand(followUpSelected, followUpCommand);
+
+    expect(resolved.state.progress).toEqual({ phase: "action" });
+    expect(resolved.state.currentSeat).toBe("bob");
+    expect(resolved.state.revision).toBe(2);
+    expect(resolved.acceptedCommands.map((envelope) => envelope.command.type))
+      .toEqual(["SELL", "RESOLVE_MERCHANT_FREE_DEVELOP"]);
+    expect(resolved.state.events.filter(
+      (event) => event.type === "ACTION_ACCEPTED",
+    )).toHaveLength(1);
+    expect(resolved.state.events.slice(-3).map((event) => event.type)).toEqual([
+      "MERCHANT_FREE_DEVELOP_RESOLVED",
+      "ACTION_ACCEPTED",
+      "COMMAND_APPLIED",
+    ]);
+    expect(resolved.state.cards.hands.alice).toHaveLength(
+      fixture.state.cards.hands.alice.length,
+    );
+    expect(toHotseatPrototypeModel(
+      toHotseatViewModel(resolved),
+      resolved.state,
+    ).handoff).toEqual({ nextSeat: "bob" });
   });
 
   it("keeps the pending Merchant follow-up behind a privacy-safe handoff", () => {

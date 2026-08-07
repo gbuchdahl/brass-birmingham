@@ -1,7 +1,9 @@
 import type { PlayableCardId } from "@/engine/cards-v2/types";
+import type { SellTileSelection } from "@/engine/actions-v2/sell";
 import type {
   GameV2Command,
   GameV2CommandOutcome,
+  GameV2PlayerActionEffect,
   GameV2PlayerCommand,
 } from "@/engine/game-v2/commands";
 import {
@@ -17,6 +19,12 @@ import {
   getGameV2DevelopLegalOptions,
   type GameV2DevelopLegalDisabledReason,
 } from "@/engine/game-v2/develop-legal";
+import {
+  getGameV2SellLegalOptions,
+  type GameV2SellLegalDisabledReason,
+  type GameV2SellPlan,
+  type GameV2SellProjectedSale,
+} from "@/engine/game-v2/sell-legal";
 import type { GameStateV2 } from "@/engine/game-v2/state";
 import { incomeLevelAt } from "@/engine/economy/income";
 import type { LiquidationChoicesV2 } from "@/engine/game-v2/turn-lifecycle";
@@ -48,6 +56,11 @@ export type HotseatBuildCommand = Extract<
 export type HotseatDevelopCommand = Extract<
   GameV2PlayerCommand,
   { readonly type: "DEVELOP" }
+>;
+
+export type HotseatSellCommand = Extract<
+  GameV2PlayerCommand,
+  { readonly type: "SELL" }
 >;
 
 export type HotseatMerchantFreeDevelopCommand = Extract<
@@ -100,6 +113,34 @@ export type HotseatPrototypeDevelopPlan = {
   readonly selection: HotseatDevelopCommand["selection"];
 };
 
+export type HotseatPrototypeSellSale = {
+  readonly productIndustryId: string;
+  readonly productLabel: string;
+  readonly productEmoji: string;
+  readonly productLocationLabel: string;
+  readonly productLevel: number;
+  readonly merchantLabel: string;
+  readonly beerSummary: string;
+  readonly incomeSummary: string;
+};
+
+export type HotseatPrototypeSellPlan = {
+  readonly id: string;
+  readonly selection: HotseatSellCommand["selection"];
+  readonly sales: readonly HotseatPrototypeSellSale[];
+  readonly rewardSummary: string;
+  readonly pendingFreeDevelopCount: number;
+  readonly moneyChange: number;
+  readonly victoryPointsChange: number;
+  readonly incomeMarkerSpacesAdvanced: number;
+};
+
+export type HotseatPrototypeSellNextOption = {
+  readonly id: string;
+  readonly sale: HotseatPrototypeSellSale;
+  readonly plan: HotseatPrototypeSellPlan;
+};
+
 export type HotseatPrototypePlayerInventory = {
   readonly seat: string;
   readonly industries: readonly {
@@ -146,12 +187,14 @@ export type HotseatPrototypePrivateModel = {
     readonly canScout: boolean;
     readonly canNetwork: boolean;
     readonly canDevelop: boolean;
+    readonly canSell: boolean;
   }[];
   readonly selectedCardId: PlayableCardId | null;
   readonly selectedScoutCardIds: readonly PlayableCardId[];
   readonly selectedNetworkLinkId: string | null;
   readonly selectedBuildPlanId: string | null;
   readonly selectedDevelopPlanId: string | null;
+  readonly selectedSellNextOptionId: string | null;
   readonly merchantFreeDevelop: {
     readonly availability: "exact" | "disabled";
     readonly requiredCount: number;
@@ -191,6 +234,15 @@ export type HotseatPrototypePrivateModel = {
       readonly selectionIsLegal: boolean;
       readonly plans: readonly HotseatPrototypeDevelopPlan[];
       readonly reason: GameV2DevelopLegalDisabledReason | null;
+    };
+    readonly sell: {
+      readonly availability: "exact" | "disabled";
+      readonly selectedSales: readonly SellTileSelection[];
+      readonly currentPlan: HotseatPrototypeSellPlan | null;
+      readonly nextOptions: readonly HotseatPrototypeSellNextOption[];
+      readonly selectedNextOptionId: string | null;
+      readonly selectedNextIsLegal: boolean;
+      readonly reason: GameV2SellLegalDisabledReason | null;
     };
   };
 };
@@ -484,6 +536,132 @@ export function selectedHotseatDevelopCommand(
     : { type: "DEVELOP", selection: plan.selection };
 }
 
+function cloneHotseatSellSale(sale: SellTileSelection): SellTileSelection {
+  return {
+    industryId: sale.industryId,
+    merchantSpaceId: sale.merchantSpaceId,
+    beerSource: sale.beerSource.kind === "merchant"
+      ? { kind: "merchant" }
+      : { kind: "brewery", industryId: sale.beerSource.industryId },
+  };
+}
+
+function isHotseatSellSale(value: unknown): value is SellTileSelection {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const sale = value as Record<string, unknown>;
+  if (
+    typeof sale.industryId !== "string" || sale.industryId.length === 0 ||
+    typeof sale.merchantSpaceId !== "string" ||
+    sale.merchantSpaceId.length === 0 ||
+    typeof sale.beerSource !== "object" || sale.beerSource === null ||
+    Array.isArray(sale.beerSource)
+  ) return false;
+  const beer = sale.beerSource as Record<string, unknown>;
+  return beer.kind === "merchant" ||
+    (beer.kind === "brewery" &&
+      typeof beer.industryId === "string" && beer.industryId.length > 0);
+}
+
+export function selectedHotseatSellPrefix(
+  draft: HotseatDraft | null,
+): readonly SellTileSelection[] | null {
+  const value = draft?.fields.sellPrefix;
+  if (value === undefined) return [];
+  return Array.isArray(value) && value.every(isHotseatSellSale)
+    ? value.map(cloneHotseatSellSale)
+    : null;
+}
+
+export function selectedHotseatSellNextOptionId(
+  draft: HotseatDraft | null,
+): string | null {
+  const optionId = draft?.fields.sellNextOptionId;
+  return typeof optionId === "string" && optionId.length > 0 ? optionId : null;
+}
+
+export function hotseatSellPlanId(
+  selection: HotseatSellCommand["selection"],
+): string {
+  return JSON.stringify({
+    cardId: selection.cardId,
+    sales: selection.sales.map(cloneHotseatSellSale),
+  });
+}
+
+export function selectHotseatSellNextOption(
+  draft: HotseatDraft | null,
+  optionId: string,
+  legalOptionIds: readonly string[],
+): HotseatDraft {
+  const fields = { ...draft?.fields };
+  if (legalOptionIds.includes(optionId)) {
+    fields.sellNextOptionId = optionId;
+  } else {
+    delete fields.sellNextOptionId;
+  }
+  return { commandType: "SELL", fields };
+}
+
+export function clearHotseatSellDraft(
+  draft: HotseatDraft | null,
+): HotseatDraft | null {
+  if (draft === null) return null;
+  const fields = { ...draft.fields };
+  delete fields.sellPrefix;
+  delete fields.sellNextOptionId;
+  return { ...draft, fields };
+}
+
+export function normalizeHotseatSellDraft(
+  draft: HotseatDraft | null,
+  acceptedPrefix: readonly SellTileSelection[] | null,
+  legalNextOptionIds: readonly string[],
+): HotseatDraft | null {
+  if (draft === null) return null;
+  if (acceptedPrefix === null) return clearHotseatSellDraft(draft);
+  const fields = { ...draft.fields };
+  if (acceptedPrefix.length === 0) {
+    delete fields.sellPrefix;
+  } else {
+    fields.sellPrefix = acceptedPrefix.map(cloneHotseatSellSale);
+  }
+  const nextId = selectedHotseatSellNextOptionId(draft);
+  if (nextId === null || !legalNextOptionIds.includes(nextId)) {
+    delete fields.sellNextOptionId;
+  } else {
+    fields.sellNextOptionId = nextId;
+  }
+  return { ...draft, fields };
+}
+
+export function appendSelectedHotseatSellSale(
+  draft: HotseatDraft | null,
+  privateModel: HotseatPrototypePrivateModel,
+): HotseatDraft | null {
+  const sell = privateModel.legal.sell;
+  const option = sell.nextOptions.find(
+    (candidate) => candidate.id === sell.selectedNextOptionId,
+  );
+  if (option === undefined || !sell.selectedNextIsLegal) return draft;
+  const fields: Record<string, unknown> = {
+    ...draft?.fields,
+    sellPrefix: option.plan.selection.sales.map(cloneHotseatSellSale),
+  };
+  delete fields.sellNextOptionId;
+  return { commandType: "SELL", fields };
+}
+
+export function selectedHotseatSellCommand(
+  privateModel: HotseatPrototypePrivateModel,
+): HotseatSellCommand | null {
+  const plan = privateModel.legal.sell.currentPlan;
+  return plan === null
+    ? null
+    : { type: "SELL", selection: plan.selection };
+}
+
 export function hotseatMerchantFreeDevelopSelectionId(
   tileIds: readonly string[],
 ): string {
@@ -599,6 +777,63 @@ function hotseatDevelopIronSummary(
   return parts.join(" · ");
 }
 
+function hotseatSellBeerSummary(sale: GameV2SellProjectedSale): string {
+  if (sale.beer.kind === "brewery") {
+    return `🍺 mandatory Brewery beer from ${sale.beer.locationLabel} (${sale.beer.own ? "own" : sale.beer.owner}; ${sale.beer.beerRemaining} remains)`;
+  }
+  const bonus = sale.beer.bonus;
+  const bonusSummary = bonus.kind === "money"
+    ? `£${bonus.amount}`
+    : bonus.kind === "victory_points"
+      ? `${bonus.amount} VP`
+      : bonus.kind === "income_spaces"
+        ? `${bonus.spacesAdvanced} income spaces`
+        : `${bonus.amount} free Develop`;
+  return `🍺 mandatory Merchant beer at ${sale.beer.locationLabel} · ${bonusSummary}`;
+}
+
+function projectHotseatSellSale(
+  sale: GameV2SellProjectedSale,
+): HotseatPrototypeSellSale {
+  const presentation = industryPresentation(sale.industry.industry);
+  return {
+    productIndustryId: sale.industry.industryId,
+    productLabel: sale.industry.industryLabel,
+    productEmoji: presentation.emoji,
+    productLocationLabel: sale.industry.locationLabel,
+    productLevel: sale.industry.tile.level,
+    merchantLabel: sale.merchant.locationLabel,
+    beerSummary: hotseatSellBeerSummary(sale),
+    incomeSummary:
+      `${sale.income.printedSpaces} printed income spaces; ${sale.income.spacesAdvanced} advanced`,
+  };
+}
+
+function projectHotseatSellPlan(plan: GameV2SellPlan): HotseatPrototypeSellPlan {
+  const rewards = [
+    plan.rewards.incomeSpacesAdvanced > 0
+      ? `income +${plan.rewards.incomeSpacesAdvanced} spaces`
+      : null,
+    plan.rewards.money > 0 ? `£${plan.rewards.money}` : null,
+    plan.rewards.victoryPoints > 0
+      ? `${plan.rewards.victoryPoints} VP`
+      : null,
+    plan.rewards.freeDevelops > 0
+      ? `${plan.rewards.freeDevelops} free Develop`
+      : null,
+  ].filter((reward): reward is string => reward !== null);
+  return {
+    id: hotseatSellPlanId(plan.selection),
+    selection: plan.selection,
+    sales: plan.sales.map(projectHotseatSellSale),
+    rewardSummary: rewards.length === 0 ? "No rewards" : rewards.join(" · "),
+    pendingFreeDevelopCount: plan.pendingFollowUp?.count ?? 0,
+    moneyChange: plan.playerResult.moneyChange,
+    victoryPointsChange: plan.playerResult.victoryPointsChange,
+    incomeMarkerSpacesAdvanced: plan.playerResult.incomeMarkerSpacesAdvanced,
+  };
+}
+
 function hotseatBuildSpaceLabel(buildSpaceId: string): string {
   const suffix = /_([0-9]+)$/.exec(buildSpaceId)?.[1];
   return suffix === undefined ? buildSpaceId : `space ${suffix}`;
@@ -668,15 +903,42 @@ export function legalHotseatScoutTriple(
   ) ?? null;
 }
 
+function describeBuildProduction(
+  effect: Extract<GameV2PlayerActionEffect, { readonly type: "INDUSTRY_BUILT" }>,
+): string {
+  if (effect.placement.industry !== "iron" &&
+      effect.placement.industry !== "coal") return "";
+  const resource = effect.placement.industry;
+  const industry = resource === "iron" ? "Iron Works" : "Coal Mine";
+  const sold = effect.productionSold[resource];
+  const remaining = effect.placement.resources[resource];
+  const produced = sold + remaining;
+  if (effect.placement.flipped) {
+    const award = effect.incomeAwards.find(
+      (candidate) => candidate.buildSpaceId === effect.placement.buildSpaceId,
+    );
+    const income = award === undefined
+      ? " It emptied and flipped."
+      : award.spacesAdvanced > 0
+        ? ` It emptied and flipped, advancing income ${award.spacesAdvanced} space${award.spacesAdvanced === 1 ? "" : "s"}.`
+        : " It emptied and flipped; income was already at the maximum.";
+    return ` ${sold} of ${produced} ${resource} cubes sold to the market for £${effect.productionRevenue}.${income}`;
+  }
+  return ` ${sold} of ${produced} ${resource} cubes sold to the market for £${effect.productionRevenue}. ${remaining} remain on the ${industry}, so it has not flipped and income has not advanced yet.`;
+}
+
 export function describeHotseatOutcome(outcome: GameV2CommandOutcome): string {
   if (outcome.kind === "player_action") {
     const seat = "seat" in outcome.effect ? outcome.effect.seat : "Player";
+    const buildProduction = outcome.effect.type === "INDUSTRY_BUILT"
+      ? describeBuildProduction(outcome.effect)
+      : "";
     const followUp = outcome.pendingFollowUp
       ? " A Merchant free Develop must be resolved next."
       : outcome.turnComplete
         ? " Turn complete."
         : " One action remains.";
-    return `${seat}: ${outcome.actionType} accepted.${followUp}`;
+    return `${seat}: ${outcome.actionType} accepted.${buildProduction}${followUp}`;
   }
   if (outcome.kind === "merchant_free_develop") {
     return outcome.turnComplete
@@ -793,6 +1055,9 @@ export function toHotseatPrototypeModel(
         const developAction = options.playerActions.find((action) =>
           action.kind === "DEVELOP"
         );
+        const sellAction = options.playerActions.find((action) =>
+          action.kind === "SELL"
+        );
         const selectedCardCandidate = state.progress.phase === "action"
           ? selectedHotseatCardId(privateView.draft)
           : null;
@@ -883,6 +1148,49 @@ export function toHotseatPrototypeModel(
           selectedHotseatDevelopPlanId(privateView.draft),
           developPlans.map((plan) => plan.id),
         );
+        const sellPrefix = selectedHotseatSellPrefix(privateView.draft);
+        const sellOptions = sellPrefix === null
+          ? {
+              availability: "disabled" as const,
+              actorSeat: privateView.seat,
+              cardId: selectedCardId,
+              selectedSales: [] as readonly SellTileSelection[],
+              currentPlan: null,
+              nextSales: [],
+              reason: {
+                code: "INVALID_SALE_PREFIX" as const,
+                message: "The saved Sell draft is malformed; clear it and restart.",
+              },
+            }
+          : getGameV2SellLegalOptions(
+              state,
+              privateView.seat,
+              selectedCardId,
+              sellPrefix,
+            );
+        const currentSellPlan = sellOptions.currentPlan === null
+          ? null
+          : projectHotseatSellPlan(sellOptions.currentPlan);
+        const sellNextOptions: HotseatPrototypeSellNextOption[] =
+          sellOptions.nextSales.map((option) => {
+            const appendedSale = option.plan.sales.at(-1);
+            if (appendedSale === undefined) {
+              throw new Error("Exact Sell option omitted its appended sale.");
+            }
+            return {
+              id: hotseatSellPlanId(option.plan.selection),
+              sale: projectHotseatSellSale(appendedSale),
+              plan: projectHotseatSellPlan(option.plan),
+            };
+          });
+        const selectedSellNextCandidate =
+          selectedHotseatSellNextOptionId(privateView.draft);
+        const selectedSellNextOptionId = selectedSellNextCandidate !== null &&
+            sellNextOptions.some((option) =>
+              option.id === selectedSellNextCandidate
+            )
+          ? selectedSellNextCandidate
+          : null;
         const merchantOptions = options.merchantFreeDevelop;
         const merchantSelections: HotseatPrototypeMerchantFreeDevelopSelection[] =
           merchantOptions.legalTileIdSelections.map((tileIds) => ({
@@ -921,12 +1229,15 @@ export function toHotseatPrototypeModel(
             canNetwork: options.network.selectableCardIds.includes(id),
             canDevelop: developAction !== undefined &&
               developAction.availability !== "disabled",
+            canSell: sellAction !== undefined &&
+              sellAction.availability !== "disabled",
           })),
           selectedCardId,
           selectedScoutCardIds: scoutCardIds,
           selectedNetworkLinkId,
           selectedBuildPlanId,
           selectedDevelopPlanId,
+          selectedSellNextOptionId,
           merchantFreeDevelop: state.progress.phase === "merchant_free_develop"
             ? {
                 availability: merchantOptions.availability,
@@ -978,6 +1289,15 @@ export function toHotseatPrototypeModel(
                 selectedDevelopPlanId !== null,
               plans: developPlans,
               reason: developOptions.reason,
+            },
+            sell: {
+              availability: sellOptions.availability,
+              selectedSales: sellOptions.selectedSales,
+              currentPlan: currentSellPlan,
+              nextOptions: sellNextOptions,
+              selectedNextOptionId: selectedSellNextOptionId,
+              selectedNextIsLegal: selectedSellNextOptionId !== null,
+              reason: sellOptions.reason,
             },
           },
         };
