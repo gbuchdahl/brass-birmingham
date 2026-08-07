@@ -25,11 +25,14 @@ import {
 } from "@/ui/hotseat-session";
 import {
   normalizeHotseatBuildDraft,
+  normalizeHotseatDevelopDraft,
   selectHotseatActionCard,
   selectHotseatBuildPlan,
+  selectHotseatDevelopPlan,
   selectHotseatMerchantFreeDevelopSelection,
   selectHotseatNetworkLink,
   selectedHotseatBuildCommand,
+  selectedHotseatDevelopCommand,
   selectedHotseatCardId,
   selectedHotseatNetworkCommand,
   selectedHotseatMerchantFreeDevelopCommand,
@@ -159,7 +162,7 @@ export default function DevPage() {
       );
       if (
         card === undefined ||
-        (!card.canPass && !card.canLoan && !card.canNetwork)
+        (!card.canPass && !card.canLoan && !card.canNetwork && !card.canDevelop)
       ) return current;
       const withCard = setHotseatDraft(
         current,
@@ -169,11 +172,18 @@ export default function DevPage() {
         toHotseatViewModel(withCard),
         withCard.state,
       ).private;
-      return setHotseatDraft(
+      const withNormalizedBuild = setHotseatDraft(
         withCard,
         normalizeHotseatBuildDraft(
           withCard.draft,
           nextPrivate?.legal.build.plans.map((plan) => plan.id) ?? [],
+        ),
+      );
+      return setHotseatDraft(
+        withNormalizedBuild,
+        normalizeHotseatDevelopDraft(
+          withNormalizedBuild.draft,
+          nextPrivate?.legal.develop.plans.map((plan) => plan.id) ?? [],
         ),
       );
     });
@@ -307,6 +317,38 @@ export default function DevPage() {
     });
   }
 
+  function selectDevelopPlan(planId: string): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (privateModel === null) return current;
+      return setHotseatDraft(
+        current,
+        selectHotseatDevelopPlan(
+          current.draft,
+          planId,
+          privateModel.legal.develop.plans.map((plan) => plan.id),
+        ),
+      );
+    });
+  }
+
+  function submitDevelop(): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (privateModel === null) return current;
+      const command = selectedHotseatDevelopCommand(privateModel);
+      return command === null
+        ? current
+        : submitHotseatCommand(current, command);
+    });
+  }
+
   function selectMerchantFreeDevelop(selectionId: string): void {
     setSession((current) => {
       const privateModel = toHotseatPrototypeModel(
@@ -408,6 +450,7 @@ export default function DevPage() {
         <GameV2HotseatPrototype
           model={model}
           onBuild={submitBuild}
+          onDevelop={submitDevelop}
           onHide={() => setSession(hideHotseatHand)}
           onLoan={() => submitCardAction("LOAN")}
           onNetwork={submitNetwork}
@@ -421,6 +464,7 @@ export default function DevPage() {
           onReveal={() => setSession(revealHotseatHand)}
           onScout={submitScout}
           onSelectBuildPlan={selectBuildPlan}
+          onSelectDevelopPlan={selectDevelopPlan}
           onSelectMerchantFreeDevelop={selectMerchantFreeDevelop}
           onSelectCard={selectCard}
           onSelectNetworkLink={selectNetworkLink}

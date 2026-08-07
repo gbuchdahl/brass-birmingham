@@ -12,10 +12,10 @@ Last updated: 2026-08-06
 
 The project is currently **engine-first**, with a deliberately plain but
 interactive hot-seat prototype at `/dev`. It supports privacy-safe device
-handoff, exact industry Build plans, Pass, Loan, Scout, exact Canal Network link
-selection, exact Merchant free-Develop follow-ups, automatic cash-covered
-income settlement, corruption-safe local recovery, and the system boundaries
-required to play deterministic rounds through both eras.
+handoff, exact industry Build and Develop plans, Pass, Loan, Scout, exact Canal
+Network link selection, exact Merchant free-Develop follow-ups, automatic
+cash-covered income settlement, corruption-safe local recovery, and the system
+boundaries required to play deterministic rounds through both eras.
 
 ## Pushed and working
 
@@ -43,10 +43,10 @@ required to play deterministic rounds through both eras.
 - Deterministic command/replay coverage for the earlier engine slice.
 - An interactive `GameStateV2` hot-seat prototype at `/dev` with deterministic
   2-4 player reset controls, pass-device privacy, current-hand reveal/hide,
-  selector-backed industry Build, Pass, Loan, Scout, and Canal Network actions,
-  privacy-safe Merchant free-Develop resolution, typed errors, round/era
-  Continue controls, public state summaries, visible built-industry boxes,
-  recent event types, and final standings.
+  selector-backed industry Build, Develop, Pass, Loan, Scout, and Canal Network
+  actions, privacy-safe Merchant free-Develop resolution, typed errors,
+  round/era Continue controls, public state summaries, visible built-industry
+  boxes and next-tile inventories, recent event types, and final standings.
 - A pure hot-seat session controller with pass-device handoff/reveal privacy,
   public/private projections, deterministic command history, draft/error
   handling, and unit coverage.
@@ -63,8 +63,7 @@ required to play deterministic rounds through both eras.
   price, provider depletion, and resulting inventory. Sell choices include the
   product, Merchant, mandatory beer source, reward, income, and any pending free
   Develop. Every emitted plan is accepted by the authoritative command reducer.
-  Rail Network, Develop, Sell, and liquidation remain explicitly incomplete in
-  the UI.
+  Rail Network, Sell, and liquidation remain explicitly incomplete in the UI.
 - Strict event/phase provenance validation for command receipts, round and era
   boundaries, Merchant follow-ups, Canal-to-Rail transition, and terminal Rail
   scoring.
@@ -99,7 +98,8 @@ the next action slice.
 The engine also exposes exact, reducer-checked Develop plans for a selected
 card, including one- or two-tile removal, mandatory board iron before market
 iron, exact market prices, and provider flips. The selector is bounded and has
-a dense-board regression; its browser control is the next UI checkpoint.
+a dense-board regression. Its hot-seat control shows ordered tile removals,
+board-versus-market iron, exact cost, and the resulting public next-tile stacks.
 
 Sell now has an exact progressive engine contract as well. It avoids factorial
 multi-sale enumeration by exposing one decision layer at a time: each accepted
@@ -109,12 +109,15 @@ both material sale orders, deduplicates only byte-equivalent adapter outcomes,
 and projects Merchant rewards and pending Gloucester free Develop.
 
 The browser-verified prototype can build a real level-1 Cannock coal mine for
-£5 and show its two coal cubes, Scout three regular cards for both Wilds, build
-an exact reachable Canal link for £3, continue after reload without command-ID
-collisions, take a Loan, pay negative income from cash, settle into round 2, and
-reset to four players. Reload hides the current hand before any private state is
-mounted. Browser console output was clean. The full gate passes 43 test files /
-564 tests plus the production build. Start it with:
+£5 and show its two coal cubes; Develop a level-1 Manufacturer and Cotton Mill
+for £4 of market iron, reducing £17 to £13 and advancing both public next-tile
+stacks; Scout three regular cards for both Wilds; build an exact reachable Canal
+link for £3; continue after reload without command-ID collisions; take a Loan;
+pay negative income from cash; settle into round 2; and reset to four players.
+Reload restores the exact revision, market, and inventory while hiding the
+current hand before any private state is mounted. Browser console output was
+clean. The verified checkpoint has 45 test files / 589 tests plus the production
+build. Start it with:
 
 ```bash
 pnpm dev
@@ -124,8 +127,8 @@ Then open <http://localhost:3000/dev>.
 
 ## Next checkpoints
 
-1. Add Develop, Sell, and genuine asset-liquidation controls through exact or
-   progressive legal-target selectors.
+1. Add Sell and genuine asset-liquidation controls through exact progressive
+   legal-target selectors.
 2. Enumerate Rail Network coal/beer and optional two-link plans, then expose the
    Rail control without weakening the already exact Canal selector.
 3. Run complete-game browser scenarios and the final fresh-install gate:

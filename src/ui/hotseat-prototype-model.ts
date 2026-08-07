@@ -13,6 +13,10 @@ import {
   type GameV2BuildLegalDisabledReason,
   type GameV2BuildResourceSource,
 } from "@/engine/game-v2/build-legal";
+import {
+  getGameV2DevelopLegalOptions,
+  type GameV2DevelopLegalDisabledReason,
+} from "@/engine/game-v2/develop-legal";
 import type { GameStateV2 } from "@/engine/game-v2/state";
 import { incomeLevelAt } from "@/engine/economy/income";
 import type { LiquidationChoicesV2 } from "@/engine/game-v2/turn-lifecycle";
@@ -39,6 +43,11 @@ export type HotseatNetworkCommand = Extract<
 export type HotseatBuildCommand = Extract<
   GameV2PlayerCommand,
   { readonly type: "BUILD" }
+>;
+
+export type HotseatDevelopCommand = Extract<
+  GameV2PlayerCommand,
+  { readonly type: "DEVELOP" }
 >;
 
 export type HotseatMerchantFreeDevelopCommand = Extract<
@@ -68,6 +77,38 @@ export type HotseatPrototypeBuildPlan = {
   readonly totalCost: number;
   readonly moneyChange: number;
   readonly selection: HotseatBuildCommand["selection"];
+};
+
+export type HotseatPrototypeDevelopPlan = {
+  readonly id: string;
+  readonly tiles: readonly {
+    readonly id: string;
+    readonly industryLabel: string;
+    readonly industryEmoji: string;
+    readonly level: number;
+  }[];
+  readonly ironSummary: string;
+  readonly boardIronSources: readonly {
+    readonly locationLabel: string;
+    readonly owner: string;
+    readonly unitsConsumed: number;
+    readonly cubesRemaining: number;
+  }[];
+  readonly marketIronUnits: number;
+  readonly marketIronCost: number;
+  readonly totalCost: number;
+  readonly selection: HotseatDevelopCommand["selection"];
+};
+
+export type HotseatPrototypePlayerInventory = {
+  readonly seat: string;
+  readonly industries: readonly {
+    readonly kind: string;
+    readonly industryLabel: string;
+    readonly industryEmoji: string;
+    readonly remaining: number;
+    readonly nextTileLevel: number | null;
+  }[];
 };
 
 export type HotseatPrototypePlacedIndustry = {
@@ -104,11 +145,13 @@ export type HotseatPrototypePrivateModel = {
     readonly canLoan: boolean;
     readonly canScout: boolean;
     readonly canNetwork: boolean;
+    readonly canDevelop: boolean;
   }[];
   readonly selectedCardId: PlayableCardId | null;
   readonly selectedScoutCardIds: readonly PlayableCardId[];
   readonly selectedNetworkLinkId: string | null;
   readonly selectedBuildPlanId: string | null;
+  readonly selectedDevelopPlanId: string | null;
   readonly merchantFreeDevelop: {
     readonly availability: "exact" | "disabled";
     readonly requiredCount: number;
@@ -142,6 +185,12 @@ export type HotseatPrototypePrivateModel = {
       readonly selectionIsLegal: boolean;
       readonly plans: readonly HotseatPrototypeBuildPlan[];
       readonly reason: GameV2BuildLegalDisabledReason | null;
+    };
+    readonly develop: {
+      readonly availability: "exact" | "disabled";
+      readonly selectionIsLegal: boolean;
+      readonly plans: readonly HotseatPrototypeDevelopPlan[];
+      readonly reason: GameV2DevelopLegalDisabledReason | null;
     };
   };
 };
@@ -184,6 +233,7 @@ export type HotseatPrototypeModel = {
   readonly handoff: { readonly nextSeat: string } | null;
   readonly private: HotseatPrototypePrivateModel | null;
   readonly placedIndustries: readonly HotseatPrototypePlacedIndustry[];
+  readonly playerIndustryInventories: readonly HotseatPrototypePlayerInventory[];
   readonly boundary: HotseatPrototypeBoundary | null;
   readonly feedback: HotseatPrototypeFeedback | null;
 };
@@ -364,6 +414,76 @@ export function selectedHotseatBuildCommand(
   return plan === undefined ? null : { type: "BUILD", selection: plan.selection };
 }
 
+export function selectedHotseatDevelopPlanId(
+  draft: HotseatDraft | null,
+): string | null {
+  const planId = draft?.fields.developPlanId;
+  return typeof planId === "string" && planId.length > 0 ? planId : null;
+}
+
+export function hotseatDevelopPlanId(
+  selection: HotseatDevelopCommand["selection"],
+): string {
+  return JSON.stringify({
+    cardId: selection.cardId,
+    tileIds: selection.tileIds,
+    accessibleIronIndustryIds: selection.accessibleIronIndustryIds,
+    purchaseMarketShortfall: selection.purchaseMarketShortfall,
+  });
+}
+
+export function normalizeHotseatDevelopPlanId(
+  planId: string | null,
+  legalPlanIds: readonly string[],
+): string | null {
+  return planId !== null && legalPlanIds.includes(planId) ? planId : null;
+}
+
+export function normalizeHotseatDevelopDraft(
+  draft: HotseatDraft | null,
+  legalPlanIds: readonly string[],
+): HotseatDraft | null {
+  if (draft === null) return null;
+  const normalized = normalizeHotseatDevelopPlanId(
+    selectedHotseatDevelopPlanId(draft),
+    legalPlanIds,
+  );
+  const fields = { ...draft.fields };
+  if (normalized === null) {
+    delete fields.developPlanId;
+  } else {
+    fields.developPlanId = normalized;
+  }
+  return { ...draft, fields };
+}
+
+export function selectHotseatDevelopPlan(
+  draft: HotseatDraft | null,
+  planId: string,
+  legalPlanIds: readonly string[],
+): HotseatDraft {
+  const normalized = normalizeHotseatDevelopPlanId(planId, legalPlanIds);
+  const fields = { ...draft?.fields };
+  if (normalized === null) {
+    delete fields.developPlanId;
+  } else {
+    fields.developPlanId = normalized;
+  }
+  return { commandType: "DEVELOP", fields };
+}
+
+export function selectedHotseatDevelopCommand(
+  privateModel: HotseatPrototypePrivateModel,
+): HotseatDevelopCommand | null {
+  if (!privateModel.legal.develop.selectionIsLegal) return null;
+  const plan = privateModel.legal.develop.plans.find(
+    (candidate) => candidate.id === privateModel.selectedDevelopPlanId,
+  );
+  return plan === undefined
+    ? null
+    : { type: "DEVELOP", selection: plan.selection };
+}
+
 export function hotseatMerchantFreeDevelopSelectionId(
   tileIds: readonly string[],
 ): string {
@@ -458,6 +578,25 @@ function hotseatBuildSourceSummary(
       ? `${emoji} ${resource} market (£${source.unitPrice})`
       : `${emoji} ${resource} from ${source.locationLabel} (${source.owner})`;
   }).join(" · ");
+}
+
+function hotseatDevelopIronSummary(
+  boardSources: readonly {
+    readonly locationLabel: string;
+    readonly owner: string;
+    readonly unitsConsumed: number;
+  }[],
+  market: { readonly unitsPurchased: number; readonly totalCost: number },
+): string {
+  const parts = boardSources.map((source) =>
+    `⚙️ ${source.unitsConsumed} iron from ${source.locationLabel} (${source.owner})`
+  );
+  if (market.unitsPurchased > 0) {
+    parts.push(
+      `⚙️ ${market.unitsPurchased} iron from market (£${market.totalCost})`,
+    );
+  }
+  return parts.join(" · ");
 }
 
 function hotseatBuildSpaceLabel(buildSpaceId: string): string {
@@ -651,6 +790,9 @@ export function toHotseatPrototypeModel(
         const loan = options.playerActions.find((action) =>
           action.kind === "LOAN"
         );
+        const developAction = options.playerActions.find((action) =>
+          action.kind === "DEVELOP"
+        );
         const selectedCardCandidate = state.progress.phase === "action"
           ? selectedHotseatCardId(privateView.draft)
           : null;
@@ -705,6 +847,42 @@ export function toHotseatPrototypeModel(
           selectedHotseatBuildPlanId(privateView.draft),
           buildPlans.map((plan) => plan.id),
         );
+        const developOptions = getGameV2DevelopLegalOptions(
+          state,
+          privateView.seat,
+          selectedCardId,
+        );
+        const developPlans: HotseatPrototypeDevelopPlan[] =
+          developOptions.plans.map((plan) => ({
+            id: hotseatDevelopPlanId(plan.selection),
+            tiles: plan.tiles.map((tile) => {
+              const presentation = industryPresentation(tile.industry);
+              return {
+                id: tile.id,
+                industryLabel: presentation.label,
+                industryEmoji: presentation.emoji,
+                level: tile.level,
+              };
+            }),
+            ironSummary: hotseatDevelopIronSummary(
+              plan.iron.boardSources,
+              plan.iron.market,
+            ),
+            boardIronSources: plan.iron.boardSources.map((source) => ({
+              locationLabel: source.locationLabel,
+              owner: source.owner,
+              unitsConsumed: source.unitsConsumed,
+              cubesRemaining: source.cubesRemaining,
+            })),
+            marketIronUnits: plan.iron.market.unitsPurchased,
+            marketIronCost: plan.iron.market.totalCost,
+            totalCost: plan.moneySpent,
+            selection: plan.selection,
+          }));
+        const selectedDevelopPlanId = normalizeHotseatDevelopPlanId(
+          selectedHotseatDevelopPlanId(privateView.draft),
+          developPlans.map((plan) => plan.id),
+        );
         const merchantOptions = options.merchantFreeDevelop;
         const merchantSelections: HotseatPrototypeMerchantFreeDevelopSelection[] =
           merchantOptions.legalTileIdSelections.map((tileIds) => ({
@@ -741,11 +919,14 @@ export function toHotseatPrototypeModel(
             canScout: options.scout.reason === null &&
               options.scout.selectableRegularCardIds.includes(id),
             canNetwork: options.network.selectableCardIds.includes(id),
+            canDevelop: developAction !== undefined &&
+              developAction.availability !== "disabled",
           })),
           selectedCardId,
           selectedScoutCardIds: scoutCardIds,
           selectedNetworkLinkId,
           selectedBuildPlanId,
+          selectedDevelopPlanId,
           merchantFreeDevelop: state.progress.phase === "merchant_free_develop"
             ? {
                 availability: merchantOptions.availability,
@@ -791,6 +972,13 @@ export function toHotseatPrototypeModel(
               plans: buildPlans,
               reason: buildOptions.reason,
             },
+            develop: {
+              availability: developOptions.availability,
+              selectionIsLegal: developOptions.availability === "exact" &&
+                selectedDevelopPlanId !== null,
+              plans: developPlans,
+              reason: developOptions.reason,
+            },
           },
         };
       })();
@@ -816,6 +1004,25 @@ export function toHotseatPrototypeModel(
         flipped: placement.flipped,
       };
     });
+  const playerIndustryInventories: HotseatPrototypePlayerInventory[] =
+    view.public.players.map((player) => ({
+      seat: player.seat,
+      industries: player.industry.map((stack) => {
+        const tile = stack.nextTileId === null
+          ? undefined
+          : INDUSTRY_TILE_BY_ID[
+              stack.nextTileId as keyof typeof INDUSTRY_TILE_BY_ID
+            ];
+        const presentation = industryPresentation(stack.kind);
+        return {
+          kind: stack.kind,
+          industryLabel: presentation.label,
+          industryEmoji: presentation.emoji,
+          remaining: stack.remaining,
+          nextTileLevel: tile?.level ?? null,
+        };
+      }),
+    }));
 
   return {
     public: view.public,
@@ -826,6 +1033,7 @@ export function toHotseatPrototypeModel(
       : null,
     private: privateModel,
     placedIndustries,
+    playerIndustryInventories,
     boundary: boundaryFor(view.public),
     feedback,
   };

@@ -9,12 +9,14 @@ type GameV2HotseatPrototypeProps = {
   readonly onToggleScoutCard: (cardId: PlayableCardId) => void;
   readonly onSelectNetworkLink: (linkId: string) => void;
   readonly onSelectBuildPlan: (planId: string) => void;
+  readonly onSelectDevelopPlan: (planId: string) => void;
   readonly onSelectMerchantFreeDevelop: (selectionId: string) => void;
   readonly onPass: () => void;
   readonly onLoan: () => void;
   readonly onScout: () => void;
   readonly onNetwork: () => void;
   readonly onBuild: () => void;
+  readonly onDevelop: () => void;
   readonly onResolveMerchantFreeDevelop: () => void;
   readonly onSettleRound: () => void;
   readonly onResolveEra: () => void;
@@ -41,12 +43,14 @@ export function GameV2HotseatPrototype({
   onToggleScoutCard,
   onSelectNetworkLink,
   onSelectBuildPlan,
+  onSelectDevelopPlan,
   onSelectMerchantFreeDevelop,
   onPass,
   onLoan,
   onScout,
   onNetwork,
   onBuild,
+  onDevelop,
   onResolveMerchantFreeDevelop,
   onSettleRound,
   onResolveEra,
@@ -54,6 +58,9 @@ export function GameV2HotseatPrototype({
   const game = model.public;
   const selectedCardId = model.private?.selectedCardId ?? null;
   const selectedScoutCardIds = model.private?.selectedScoutCardIds ?? [];
+  const selectedDevelopPlan = model.private?.legal.develop.plans.find(
+    (plan) => plan.id === model.private?.selectedDevelopPlanId,
+  ) ?? null;
 
   return (
     <div className="space-y-5">
@@ -65,7 +72,7 @@ export function GameV2HotseatPrototype({
                 HOT-SEAT ALPHA
               </span>
               <span className="rounded border border-slate-400 px-2 py-1 text-xs font-bold tracking-wide">
-                BUILD + PASS + LOAN + SCOUT + CANAL NETWORK
+                BUILD + DEVELOP + PASS + LOAN + SCOUT + CANAL NETWORK
               </span>
             </div>
             <h1 className="text-2xl font-bold">Brass: Birmingham playable prototype</h1>
@@ -272,7 +279,7 @@ export function GameV2HotseatPrototype({
                 <Emoji>🃏</Emoji> {model.private.seat}&apos;s private hand
               </h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-neutral-300">
-                Choose one action card for Build, Pass, Loan, or Canal Network; or toggle exactly three regular cards to Scout.
+                Choose one action card for Build, Develop, Pass, Loan, or Canal Network; or toggle exactly three regular cards to Scout.
               </p>
             </div>
             <button className={secondaryButton} onClick={onHide} type="button">
@@ -306,7 +313,7 @@ export function GameV2HotseatPrototype({
                         aria-label={`Use ${card.label} as the action card`}
                         aria-pressed={selected}
                         className={secondaryButton}
-                        disabled={!card.canPass && !card.canLoan && !card.canNetwork}
+                        disabled={!card.canPass && !card.canLoan && !card.canNetwork && !card.canDevelop}
                         onClick={() => onSelectCard(card.id)}
                         type="button"
                       >
@@ -327,6 +334,70 @@ export function GameV2HotseatPrototype({
                 );
               })}
             </div>
+          </fieldset>
+
+          <fieldset className={`${inset} mt-4`}>
+            <legend className="px-1 text-sm font-bold">
+              <Emoji>⬆️</Emoji> Develop industry tiles
+            </legend>
+            {model.private.legal.develop.availability === "exact" ? (
+              <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                <label className="grid gap-1 text-sm font-semibold">
+                  Exact Develop plan
+                  <select
+                    aria-label="Develop plan"
+                    className="rounded border border-slate-400 bg-white px-3 py-2 font-normal text-slate-950 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                    onChange={(event) => onSelectDevelopPlan(event.target.value)}
+                    value={model.private.selectedDevelopPlanId ?? ""}
+                  >
+                    <option value="">Choose ordered tiles and an iron source…</option>
+                    {model.private.legal.develop.plans.map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.tiles.map((tile) =>
+                          `${tile.industryEmoji} ${tile.industryLabel} level ${tile.level}`
+                        ).join(" → ")} · {plan.ironSummary} · £{plan.totalCost}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className={primaryButton}
+                  disabled={!model.private.legal.develop.selectionIsLegal}
+                  onClick={onDevelop}
+                  type="button"
+                >
+                  <Emoji>⬆️</Emoji> Develop selected tiles
+                </button>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm">
+                <strong>Develop unavailable:</strong>{" "}
+                {model.private.legal.develop.reason?.message ??
+                  "No exact Develop choices are available."}
+              </p>
+            )}
+            {selectedDevelopPlan !== null ? (
+              <div className="mt-3 rounded border border-slate-300 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-950">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-neutral-400">
+                  Ordered removals
+                </p>
+                <ol className="mt-2 flex flex-wrap gap-2">
+                  {selectedDevelopPlan.tiles.map((tile, index) => (
+                    <li className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-neutral-700" key={`${tile.id}:${index}`}>
+                      {index + 1}. <span aria-hidden="true">{tile.industryEmoji}</span>{" "}
+                      {tile.industryLabel} level {tile.level}
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-2 text-xs">
+                  <strong>Iron:</strong> {selectedDevelopPlan.ironSummary} · <strong>Cost:</strong> £{selectedDevelopPlan.totalCost}
+                </p>
+              </div>
+            ) : model.private.legal.develop.availability === "exact" ? (
+              <p aria-live="polite" className="mt-2 text-xs text-slate-600 dark:text-neutral-300">
+                Choose one complete selector-approved Develop plan.
+              </p>
+            ) : null}
           </fieldset>
 
           <fieldset className={`${inset} mt-4`}>
@@ -481,20 +552,38 @@ export function GameV2HotseatPrototype({
       <section className={panel}>
         <h2 className="text-lg font-bold"><Emoji>👥</Emoji> Public player state</h2>
         <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-          {game.players.map((player) => (
-            <article
-              className={`${inset} ${player.isCurrent ? "ring-2 ring-amber-400 dark:ring-amber-700" : ""}`}
-              key={player.seat}
-            >
-              <h3 className="font-bold">{player.isCurrent ? "▶️ " : ""}{player.seat}</h3>
-              <p className="mt-1 text-sm">
-                £{player.money} · income marker {player.incomeMarkerSpace} · {player.victoryPoints} VP
-              </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-neutral-400">
-                {player.handCount} hidden cards · {player.linkTokensRemaining} links
-              </p>
-            </article>
-          ))}
+          {game.players.map((player) => {
+            const inventory = model.playerIndustryInventories.find(
+              (candidate) => candidate.seat === player.seat,
+            );
+            return (
+              <article
+                className={`${inset} ${player.isCurrent ? "ring-2 ring-amber-400 dark:ring-amber-700" : ""}`}
+                key={player.seat}
+              >
+                <h3 className="font-bold">{player.isCurrent ? "▶️ " : ""}{player.seat}</h3>
+                <p className="mt-1 text-sm">
+                  £{player.money} · income marker {player.incomeMarkerSpace} · {player.victoryPoints} VP
+                </p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-neutral-400">
+                  {player.handCount} hidden cards · {player.linkTokensRemaining} links
+                </p>
+                {inventory !== undefined ? (
+                  <ul className="mt-2 grid grid-cols-2 gap-1 text-[11px]" aria-label={`${player.seat} industry inventory`}>
+                    {inventory.industries.map((industry) => (
+                      <li className="rounded border border-slate-200 px-1.5 py-1 dark:border-neutral-700" key={industry.kind}>
+                        <span aria-hidden="true">{industry.industryEmoji}</span>{" "}
+                        {industry.industryLabel}: {industry.remaining}
+                        {industry.nextTileLevel === null
+                          ? " · empty"
+                          : ` · next level ${industry.nextTileLevel}`}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </article>
+            );
+          })}
         </div>
       </section>
 

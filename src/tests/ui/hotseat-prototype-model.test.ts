@@ -16,16 +16,21 @@ import {
   hotseatCardDraft,
   hotseatCardLabel,
   hotseatBuildPlanId,
+  hotseatDevelopPlanId,
   legalHotseatScoutTriple,
   normalizeHotseatNetworkLinkId,
   normalizeHotseatBuildDraft,
+  normalizeHotseatDevelopDraft,
   normalizeHotseatScoutSelection,
   selectHotseatActionCard,
   selectHotseatBuildPlan,
+  selectHotseatDevelopPlan,
   selectHotseatNetworkLink,
   selectedHotseatCardId,
   selectedHotseatBuildCommand,
   selectedHotseatBuildPlanId,
+  selectedHotseatDevelopCommand,
+  selectedHotseatDevelopPlanId,
   selectedHotseatNetworkCommand,
   selectedHotseatNetworkLinkId,
   hotseatMerchantFreeDevelopSelectionId,
@@ -126,6 +131,60 @@ function firstExactBuild(state: GameStateV2) {
     if (plan !== undefined) return { session, model, plan, cardId };
   }
   throw new Error("Expected at least one exact initial Build plan");
+}
+
+function firstExactDevelop(state: GameStateV2) {
+  const revealed = revealHotseatHand(createHotseatSession(state));
+  const cardId = state.cards.hands[state.currentSeat][0];
+  const session = setHotseatDraft(
+    revealed,
+    selectHotseatActionCard(revealed.draft, cardId),
+  );
+  const model = toHotseatPrototypeModel(
+    toHotseatViewModel(session),
+    session.state,
+  );
+  const plan = model.private?.legal.develop.plans.find(
+    (candidate) => candidate.tiles.length === 2,
+  );
+  if (plan === undefined) throw new Error("Expected an exact two-tile Develop plan");
+  return { session, model, plan, cardId };
+}
+
+function withBoardIron(state: GameStateV2): GameStateV2 {
+  const player = state.players.bob;
+  const tileId = player.industryInventory.stacks.iron[0];
+  if (tileId === undefined) throw new Error("Expected Bob's top iron tile");
+  return {
+    ...state,
+    players: {
+      ...state.players,
+      bob: {
+        ...player,
+        industryInventory: {
+          ...player.industryInventory,
+          stacks: {
+            ...player.industryInventory.stacks,
+            iron: player.industryInventory.stacks.iron.slice(1),
+          },
+        },
+      },
+    },
+    board: {
+      ...state.board,
+      placedIndustries: {
+        ...state.board.placedIndustries,
+        birmingham_3: {
+          owner: "bob",
+          tileId,
+          locationId: "birmingham",
+          spaceId: "birmingham_3",
+          resources: { coal: 0, iron: 2, beer: 0 },
+          flipped: false,
+        },
+      },
+    },
+  };
 }
 
 describe("hot-seat prototype presentation model", () => {
@@ -341,6 +400,232 @@ describe("hot-seat prototype presentation model", () => {
       reason: {
         code: "NO_LEGAL_BUILD",
         message: "The selected card has no affordable legal Build target.",
+      },
+    });
+  });
+
+  it("projects private exact Develop plans and compact public inventories", () => {
+    const state = createGameV2(["alice", "bob"], "prototype-develop-options");
+    const hiddenSession = createHotseatSession(state);
+    const hidden = toHotseatPrototypeModel(
+      toHotseatViewModel(hiddenSession),
+      hiddenSession.state,
+    );
+    const ready = firstExactDevelop(state);
+    const develop = ready.model.private?.legal.develop;
+
+    expect(hidden.private).toBeNull();
+    expect(JSON.stringify(hidden)).not.toContain("developPlanId");
+    expect(develop).toMatchObject({
+      availability: "exact",
+      selectionIsLegal: false,
+      reason: null,
+    });
+    expect(ready.model.private?.cards.every((card) => card.canDevelop)).toBe(true);
+    expect(develop?.plans.some((plan) => plan.tiles.length === 1)).toBe(true);
+    expect(develop?.plans.some((plan) => plan.tiles.length === 2)).toBe(true);
+    expect(ready.plan.id).toBe(hotseatDevelopPlanId(ready.plan.selection));
+    expect(ready.plan.tiles.map((tile) => tile.id)).toEqual(
+      ready.plan.selection.tileIds,
+    );
+    expect(ready.plan.tiles.every((tile) =>
+      tile.industryLabel.length > 0 &&
+      tile.industryEmoji.length > 0 &&
+      tile.level > 0
+    )).toBe(true);
+    expect(ready.plan.ironSummary).toContain("iron from market");
+    expect(ready.plan.marketIronUnits).toBe(2);
+    expect(ready.plan.marketIronCost).toBe(ready.plan.totalCost);
+
+    expect(hidden.playerIndustryInventories).toHaveLength(2);
+    expect(hidden.playerIndustryInventories[0]).toMatchObject({
+      seat: "alice",
+      industries: expect.arrayContaining([
+        expect.objectContaining({
+          kind: "manufacturer",
+          industryLabel: "Manufacturer",
+          industryEmoji: "🏭",
+          remaining: state.players.alice.industryInventory.stacks.manufacturer.length,
+          nextTileLevel: 1,
+        }),
+      ]),
+    });
+  });
+
+  it("distinguishes board iron from paid market iron in Develop plans", () => {
+    const state = withBoardIron(
+      createGameV2(["alice", "bob"], "prototype-develop-board-iron"),
+    );
+    const ready = firstExactDevelop(state);
+
+    expect(ready.plan.boardIronSources).toEqual([
+      {
+        locationLabel: "Birmingham",
+        owner: "bob",
+        unitsConsumed: 2,
+        cubesRemaining: 0,
+      },
+    ]);
+    expect(ready.plan.marketIronUnits).toBe(0);
+    expect(ready.plan.marketIronCost).toBe(0);
+    expect(ready.plan.totalCost).toBe(0);
+    expect(ready.plan.ironSummary).toBe(
+      "⚙️ 2 iron from Birmingham (bob)",
+    );
+  });
+
+  it("preserves a Develop draft across other controls and clears it when stale", () => {
+    const state = createGameV2(["alice", "bob"], "prototype-develop-draft");
+    const ready = firstExactDevelop(state);
+    const planIds = ready.model.private?.legal.develop.plans.map(
+      (plan) => plan.id,
+    ) ?? [];
+    const selected = selectHotseatDevelopPlan(
+      ready.session.draft,
+      ready.plan.id,
+      planIds,
+    );
+    const scoutChanged = toggleHotseatScoutCard(
+      selected,
+      state.cards.hands.alice[1],
+      state.cards.hands.alice,
+    );
+    const networkChanged = selectHotseatNetworkLink(
+      scoutChanged,
+      "link-placeholder",
+      ["link-placeholder"],
+    );
+
+    expect(selectedHotseatDevelopPlanId(selected)).toBe(ready.plan.id);
+    expect(selectedHotseatDevelopPlanId(scoutChanged)).toBe(ready.plan.id);
+    expect(selectedHotseatDevelopPlanId(networkChanged)).toBe(ready.plan.id);
+    expect(normalizeHotseatDevelopDraft(networkChanged, planIds)?.fields)
+      .toMatchObject({ developPlanId: ready.plan.id });
+    expect(selectedHotseatDevelopPlanId(
+      normalizeHotseatDevelopDraft(networkChanged, []),
+    )).toBeNull();
+
+    const buildPlan = ready.model.private?.legal.build.plans[0];
+    if (buildPlan === undefined) throw new Error("Expected a Build plan too");
+    const combinedPlans = selectHotseatBuildPlan(
+      selected,
+      buildPlan.id,
+      ready.model.private?.legal.build.plans.map((plan) => plan.id) ?? [],
+    );
+    const secondCardDraft = selectHotseatActionCard(
+      combinedPlans,
+      state.cards.hands.alice[1],
+    );
+    const changedCardSession = setHotseatDraft(ready.session, secondCardDraft);
+    const changedCardModel = toHotseatPrototypeModel(
+      toHotseatViewModel(changedCardSession),
+      changedCardSession.state,
+    );
+    expect(changedCardModel.private?.selectedDevelopPlanId).toBeNull();
+    expect(changedCardModel.private?.selectedBuildPlanId).toBeNull();
+    const normalizedBuild = normalizeHotseatBuildDraft(
+      secondCardDraft,
+      changedCardModel.private?.legal.build.plans.map((plan) => plan.id) ?? [],
+    );
+    const normalizedChangedCard = normalizeHotseatDevelopDraft(
+      normalizedBuild,
+      changedCardModel.private?.legal.develop.plans.map((plan) => plan.id) ?? [],
+    );
+    expect(normalizedChangedCard?.fields).not.toHaveProperty("buildPlanId");
+    expect(normalizedChangedCard?.fields).not.toHaveProperty("developPlanId");
+
+    const selectedSession = setHotseatDraft(ready.session, selected);
+    const restored = deserializeHotseatSession(
+      serializeHotseatSession(selectedSession),
+    );
+    expect(restored.visibility).toEqual({ kind: "handoff", nextSeat: "alice" });
+    expect(restored.draft).toBeNull();
+    expect(toHotseatPrototypeModel(
+      toHotseatViewModel(restored),
+      restored.state,
+    ).private).toBeNull();
+  });
+
+  it("submits an exact Develop plan through the reducer and returns to handoff", () => {
+    const state = createGameV2(["alice", "bob"], "prototype-develop-success");
+    const ready = firstExactDevelop(state);
+    const selected = setHotseatDraft(
+      ready.session,
+      selectHotseatDevelopPlan(
+        ready.session.draft,
+        ready.plan.id,
+        ready.model.private?.legal.develop.plans.map((plan) => plan.id) ?? [],
+      ),
+    );
+    const selectedModel = toHotseatPrototypeModel(
+      toHotseatViewModel(selected),
+      selected.state,
+    );
+    const command = selectedModel.private === null
+      ? null
+      : selectedHotseatDevelopCommand(selectedModel.private);
+    if (command === null) throw new Error("Expected a ready Develop command");
+    expect(command).toEqual({ type: "DEVELOP", selection: ready.plan.selection });
+    const accepted = submitHotseatCommand(selected, command);
+    const handoff = toHotseatPrototypeModel(
+      toHotseatViewModel(accepted),
+      accepted.state,
+    );
+
+    expect(accepted.state.revision).toBe(state.revision + 1);
+    expect(accepted.state.players.alice.money).toBe(
+      state.players.alice.money - ready.plan.totalCost,
+    );
+    expect(accepted.state.market.iron).toBe(
+      state.market.iron - ready.plan.marketIronUnits,
+    );
+    expect(accepted.state.players.alice.removedIndustryTileIds).toEqual(
+      expect.arrayContaining(ready.plan.tiles.map((tile) => tile.id)),
+    );
+    for (const tile of ready.plan.tiles) {
+      expect(Object.values(
+        accepted.state.players.alice.industryInventory.stacks,
+      ).flat()).not.toContain(tile.id);
+    }
+    expect(accepted.state.cards.discard).toContain(ready.cardId);
+    expect(accepted.state.cards.hands.alice).not.toContain(ready.cardId);
+    expect(accepted.state.cards.hands.alice).toHaveLength(
+      state.cards.hands.alice.length,
+    );
+    expect(accepted.state.currentSeat).toBe("bob");
+    expect(accepted.lastResult).toMatchObject({
+      ok: true,
+      outcome: { kind: "player_action", actionType: "DEVELOP" },
+    });
+    expect(handoff.handoff).toEqual({ nextSeat: "bob" });
+    expect(handoff.private).toBeNull();
+  });
+
+  it("surfaces the selected card's exact no-Develop blocker", () => {
+    const base = createGameV2(["alice", "bob"], "prototype-develop-blocker");
+    const state: GameStateV2 = {
+      ...base,
+      players: {
+        ...base.players,
+        alice: { ...base.players.alice, money: 0 },
+      },
+    };
+    const session = setHotseatDraft(
+      revealHotseatHand(createHotseatSession(state)),
+      selectHotseatActionCard(null, state.cards.hands.alice[0]),
+    );
+    const model = toHotseatPrototypeModel(
+      toHotseatViewModel(session),
+      session.state,
+    );
+
+    expect(model.private?.legal.develop).toMatchObject({
+      availability: "disabled",
+      selectionIsLegal: false,
+      plans: [],
+      reason: {
+        code: "NO_LEGAL_DEVELOP",
+        message: "The active player has no affordable legal Develop selection.",
       },
     });
   });
