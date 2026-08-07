@@ -42,7 +42,9 @@ deterministic rounds through both eras.
   explicit liquidation, and phase-boundary guards.
 - Settled Canal-to-Rail transition and terminal Rail scoring, including
   replay-safe boundary provenance and protection against repeated scoring.
-- Deterministic command/replay coverage for the earlier engine slice.
+- Deterministic command/replay coverage for the earlier engine slice, including
+  complete two-era all-Pass games at 2, 3, and 4 players with exact command,
+  revision, card-zone, phase, event, and byte-identical replay assertions.
 - An interactive `GameStateV2` hot-seat prototype at `/dev` with deterministic
   2-4 player reset controls, pass-device privacy, current-hand reveal/hide,
   selector-backed industry Build, Develop, Sell, Pass, Loan, Scout, and Canal
@@ -162,7 +164,7 @@ removed only those two industries, advanced the round, and restored the hidden
 revision-13 handoff after reload.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
-clean. The verified checkpoint has 47 test files / 616 tests plus the production
+clean. The verified checkpoint has 47 test files / 618 tests plus the production
 build. Start it with:
 
 ```bash

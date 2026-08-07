@@ -621,39 +621,249 @@ describe("GameStateV2 command replay", () => {
     expect(failed.state).toEqual(afterFirst.state);
   });
 
-  it("plays and replays a complete two-era all-Pass game to final standings", () => {
-    const initial = createGameV2(["alice", "bob"], "command-complete-game");
-    const commands: GameV2CommandEnvelope[] = [];
-    let state = initial;
+  it.each([
+    {
+      seats: ["alice", "bob"],
+      playerCount: 2,
+      roundsPerEra: 10,
+      regularCards: 40,
+      canalPasses: 38,
+      railPasses: 40,
+      totalCommands: 100,
+      finalTurnNumber: 21,
+    },
+    {
+      seats: ["alice", "bob", "charlie"],
+      playerCount: 3,
+      roundsPerEra: 9,
+      regularCards: 54,
+      canalPasses: 51,
+      railPasses: 54,
+      totalCommands: 125,
+      finalTurnNumber: 28,
+    },
+    {
+      seats: ["alice", "bob", "charlie", "diana"],
+      playerCount: 4,
+      roundsPerEra: 8,
+      regularCards: 64,
+      canalPasses: 60,
+      railPasses: 64,
+      totalCommands: 142,
+      finalTurnNumber: 33,
+    },
+  ])(
+    "plays and deterministically replays a complete $playerCount-player two-era all-Pass game",
+    ({
+      seats,
+      playerCount,
+      roundsPerEra,
+      regularCards,
+      canalPasses,
+      railPasses,
+      totalCommands,
+      finalTurnNumber,
+    }) => {
+      const initial = createGameV2(
+        seats,
+        `command-complete-game-${playerCount}`,
+      );
+      const commands: GameV2CommandEnvelope[] = [];
+      const passesByEra = { canal: 0, rail: 0 };
+      const settlementsByEra = { canal: 0, rail: 0 };
+      let eraResolutions = 0;
+      let state = initial;
 
-    for (let ordinal = 1; ordinal <= 200; ordinal += 1) {
-      if (state.progress.phase === "ended") break;
-      const commandId = `complete-${ordinal}`;
-      const nextEnvelope = state.progress.phase === "action"
-        ? passCommand(state, commandId)
-        : state.progress.phase === "round_settlement"
-          ? envelope(state, commandId, null, {
-              type: "SETTLE_ROUND",
-              liquidationChoices: {},
-            })
-          : state.progress.phase === "era_transition"
-            ? envelope(state, commandId, null, { type: "RESOLVE_ERA" })
-            : null;
-      if (!nextEnvelope) {
-        throw new Error(`Unexpected complete-game phase: ${state.progress.phase}`);
+      for (let ordinal = 1; ordinal <= totalCommands; ordinal += 1) {
+        if (state.progress.phase === "ended") {
+          throw new Error(`Game ended before command ${ordinal}`);
+        }
+        const before = state;
+        const commandId = `complete-${playerCount}-${ordinal}`;
+        let nextEnvelope: GameV2CommandEnvelope;
+
+        if (before.progress.phase === "action") {
+          const actorSeat = before.currentSeat;
+          const actorIndex = seats.indexOf(actorSeat);
+          const cardId = before.cards.hands[actorSeat][0];
+          const handSizeBefore = before.cards.hands[actorSeat].length;
+          const drawSizeBefore = before.cards.draw.length;
+          const discardSizeBefore = before.cards.discard.length;
+          const completesTurn = before.actionsUsed + 1 === before.actionLimit;
+          const refillCount = completesTurn
+            ? Math.min(8 - (handSizeBefore - 1), drawSizeBefore)
+            : 0;
+          nextEnvelope = passCommand(before, commandId);
+
+          const result = executeGameV2Command(before, nextEnvelope);
+          expectSuccess(result);
+          state = result.state;
+          passesByEra[before.era] += 1;
+
+          expect(result.outcome).toMatchObject({
+            kind: "player_action",
+            actionType: "PASS",
+            pendingFollowUp: false,
+            turnComplete: completesTurn,
+          });
+          expect(cardId).toBeDefined();
+          expect(state.cards.discard).toHaveLength(discardSizeBefore + 1);
+          expect(state.cards.discard.at(-1)).toBe(cardId);
+          expect(state.cards.hands[actorSeat]).not.toContain(cardId);
+          expect(state.cards.hands[actorSeat]).toHaveLength(
+            handSizeBefore - 1 + refillCount,
+          );
+          expect(state.cards.draw).toHaveLength(drawSizeBefore - refillCount);
+          expect(state.turnNumber).toBe(
+            before.turnNumber + (completesTurn ? 1 : 0),
+          );
+          expect(state.actionsUsed).toBe(
+            completesTurn ? 0 : before.actionsUsed + 1,
+          );
+          expect(state.currentSeat).toBe(
+            completesTurn
+              ? seats[(actorIndex + 1) % seats.length]
+              : actorSeat,
+          );
+          expect(state.progress.phase).toBe(
+            completesTurn && actorIndex === seats.length - 1
+              ? "round_settlement"
+              : "action",
+          );
+        } else if (before.progress.phase === "round_settlement") {
+          const completedRound = before.round;
+          const cardsBefore = before.cards;
+          nextEnvelope = envelope(before, commandId, null, {
+            type: "SETTLE_ROUND",
+            liquidationChoices: {},
+          });
+
+          const result = executeGameV2Command(before, nextEnvelope);
+          expectSuccess(result);
+          state = result.state;
+          settlementsByEra[before.era] += 1;
+
+          expect(state.cards).toEqual(cardsBefore);
+          expect(state.currentSeat).toBe(seats[0]);
+          expect(state.actionsUsed).toBe(0);
+          expect(state.turnNumber).toBe(before.turnNumber);
+          expect(state.round).toBe(
+            completedRound === roundsPerEra
+              ? completedRound
+              : completedRound + 1,
+          );
+          expect(state.progress.phase).toBe(
+            completedRound === roundsPerEra ? "era_transition" : "action",
+          );
+          for (const seat of seats) {
+            expect(state.players[seat].money).toBe(17);
+          }
+        } else if (before.progress.phase === "era_transition") {
+          nextEnvelope = envelope(before, commandId, null, {
+            type: "RESOLVE_ERA",
+          });
+
+          const result = executeGameV2Command(before, nextEnvelope);
+          expectSuccess(result);
+          state = result.state;
+          eraResolutions += 1;
+
+          if (before.era === "canal") {
+            expect(state).toMatchObject({
+              era: "rail",
+              round: 1,
+              turnNumber: 1,
+              currentSeat: seats[0],
+              actionsUsed: 0,
+              actionLimit: 2,
+              progress: { phase: "action" },
+            });
+            expect(state.cards.discard).toEqual([]);
+            expect(state.cards.draw).toHaveLength(
+              regularCards - 8 * playerCount,
+            );
+            for (const seat of seats) {
+              expect(state.cards.hands[seat]).toHaveLength(8);
+            }
+          } else {
+            expect(state.progress.phase).toBe("ended");
+          }
+        } else {
+          throw new Error(`Unexpected complete-game phase: ${before.progress.phase}`);
+        }
+
+        commands.push(nextEnvelope);
+        expect(state.revision).toBe(ordinal);
+        expect(state.turnOrder).toEqual(seats);
+        expect(validateGameStateV2(state)).toMatchObject({ ok: true });
       }
-      const result = executeGameV2Command(state, nextEnvelope);
-      expectSuccess(result);
-      commands.push(nextEnvelope);
-      state = result.state;
-    }
 
-    expect(state.progress.phase).toBe("ended");
-    expect(state.era).toBe("rail");
-    expect(state.revision).toBe(commands.length);
-    expect(validateGameStateV2(state)).toMatchObject({ ok: true });
-    const replayed = replayGameV2Commands(initial, commands);
-    expect(replayed.ok).toBe(true);
-    expect(serializeGameV2(replayed.state)).toBe(serializeGameV2(state));
-  });
+      expect(state.progress.phase).toBe("ended");
+      expect(state).toMatchObject({
+        era: "rail",
+        round: roundsPerEra,
+        turnNumber: finalTurnNumber,
+        currentSeat: seats[0],
+        actionsUsed: 0,
+        actionLimit: 2,
+      });
+      expect(state.cards.draw).toEqual([]);
+      expect(state.cards.discard).toHaveLength(regularCards);
+      for (const seat of seats) {
+        expect(state.cards.hands[seat]).toEqual([]);
+      }
+      expect(passesByEra).toEqual({
+        canal: canalPasses,
+        rail: railPasses,
+      });
+      expect(settlementsByEra).toEqual({
+        canal: roundsPerEra,
+        rail: roundsPerEra,
+      });
+      expect(eraResolutions).toBe(2);
+      expect(commands).toHaveLength(totalCommands);
+      expect(state.revision).toBe(totalCommands);
+      expect(commands.map((command) => command.expectedRevision)).toEqual(
+        Array.from({ length: totalCommands }, (_, index) => index),
+      );
+
+      const expectedStandings = seats.map((seat) => ({
+        playerId: seat,
+        victoryPoints: 0,
+        incomeLevel: 0,
+        cash: 17,
+        rank: 1,
+        tied: true,
+      }));
+      if (state.progress.phase !== "ended") {
+        throw new Error("Expected terminal standings");
+      }
+      expect(state.progress.terminal.standings).toEqual(expectedStandings);
+      expect(state.events.filter((event) => event.type === "ACTION_ACCEPTED"))
+        .toHaveLength(canalPasses + railPasses);
+      expect(state.events.filter((event) => event.type === "ROUND_SETTLED"))
+        .toHaveLength(roundsPerEra * 2);
+      expect(state.events.filter((event) => event.type === "ERA_SCORED"))
+        .toHaveLength(2);
+      expect(state.events.filter((event) => event.type === "RAIL_STARTED"))
+        .toHaveLength(1);
+      expect(state.events.filter((event) => event.type === "GAME_ENDED"))
+        .toHaveLength(1);
+      expect(state.events.filter((event) => event.type === "COMMAND_APPLIED"))
+        .toHaveLength(totalCommands);
+
+      const firstReplay = replayGameV2Commands(initial, commands);
+      const secondReplay = replayGameV2Commands(initial, commands);
+      expect(firstReplay).toMatchObject({
+        ok: true,
+        commandsApplied: totalCommands,
+      });
+      expect(secondReplay).toMatchObject({
+        ok: true,
+        commandsApplied: totalCommands,
+      });
+      expect(serializeGameV2(firstReplay.state)).toBe(serializeGameV2(state));
+      expect(serializeGameV2(secondReplay.state)).toBe(serializeGameV2(state));
+    },
+  );
 });
