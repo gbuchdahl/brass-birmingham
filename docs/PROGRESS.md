@@ -54,9 +54,11 @@ required to play deterministic rounds through both eras.
   command journal, collision-safe command ordinal, and byte-verified head state.
   Invalid saves fail closed and require explicit user-confirmed replacement.
 - Fail-closed progressive legal selectors. Pass, Loan, Scout, Canal Network,
-  Merchant free Develop, and card-specific industry Build plans are exact.
-  Build plans include board space, top tile, overbuild, materially distinct
-  coal/iron sources, market cost, production outcome, and total cost; every
+  Merchant free Develop, card-specific industry Build, and card-specific
+  Develop plans are exact. Build plans include board space, top tile, overbuild,
+  materially distinct coal/iron sources, market cost, production outcome, and
+  total cost. Develop plans include ordered physical top tiles, exact board and
+  market iron, price, provider depletion, and resulting inventory. Every
   emitted plan is accepted by the authoritative command reducer. Rail Network,
   Develop, Sell, and liquidation remain explicitly incomplete in the UI.
 - Strict event/phase provenance validation for command receipts, round and era
@@ -89,6 +91,11 @@ a handoff, reveals only to the affected player, accepts an exact top-tile choice
 (or the rules-required empty skip), and completes its parent Sell exactly once.
 It is not yet reachable through ordinary browser play because Sell controls are
 the next action slice.
+
+The engine also exposes exact, reducer-checked Develop plans for a selected
+card, including one- or two-tile removal, mandatory board iron before market
+iron, exact market prices, and provider flips. The selector is bounded and has
+a dense-board regression; its browser control is the next UI checkpoint.
 
 The browser-verified prototype can build a real level-1 Cannock coal mine for
 £5 and show its two coal cubes, Scout three regular cards for both Wilds, build

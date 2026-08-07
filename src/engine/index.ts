@@ -283,6 +283,15 @@ export {
   type GameV2BuildTarget,
 } from "./game-v2/build-legal";
 export {
+  getGameV2DevelopLegalOptions,
+  type GameV2DevelopBoardIronSource,
+  type GameV2DevelopLegalDisabledReason,
+  type GameV2DevelopLegalDisabledReasonCode,
+  type GameV2DevelopLegalOptions,
+  type GameV2DevelopPlan,
+  type GameV2DevelopTile,
+} from "./game-v2/develop-legal";
+export {
   applyAcceptedActionV2,
   resolveCompletedRoundV2,
   type AcceptedActionEffectV2,
