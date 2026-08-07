@@ -349,18 +349,18 @@ function validateEnvelope(
       "Command ID must contain 1–128 characters.",
     );
   }
-  if (commandIdWasUsed(state, value.commandId)) {
-    return boundaryError(
-      state,
-      "COMMAND_ID_ALREADY_USED",
-      `Command ID has already been used: ${value.commandId}.`,
-    );
-  }
   if (value.gameId !== state.gameId) {
     return boundaryError(
       state,
       "GAME_ID_MISMATCH",
       "Command game ID does not match the authoritative game.",
+    );
+  }
+  if (commandIdWasUsed(state, value.commandId)) {
+    return boundaryError(
+      state,
+      "COMMAND_ID_ALREADY_USED",
+      `Command ID has already been used: ${value.commandId}.`,
     );
   }
   if (
@@ -546,13 +546,12 @@ function executePlayerCommand(
     );
   }
 
-  const withCommandEvent = commandEvent(adapted.state, envelope);
   if (adapted.pending) {
     const pendingState: GameStateV2 = {
-      ...withCommandEvent,
+      ...adapted.state,
       revision: state.revision + 1,
     };
-    return accept(state, pendingState, {
+    return accept(state, commandEvent(pendingState, envelope), {
       kind: "player_action",
       actionType: envelope.command.type,
       effect: adapted.effect,
@@ -563,7 +562,7 @@ function executePlayerCommand(
     });
   }
 
-  const lifecycle = applyAcceptedActionV2(withCommandEvent, adapted.effect);
+  const lifecycle = applyAcceptedActionV2(adapted.state, adapted.effect);
   if (!lifecycle.ok) {
     return {
       ok: false,
@@ -576,7 +575,7 @@ function executePlayerCommand(
       },
     };
   }
-  return accept(state, lifecycle.state, {
+  return accept(state, commandEvent(lifecycle.state, envelope), {
     kind: "player_action",
     actionType: envelope.command.type,
     effect: adapted.effect,
@@ -630,9 +629,8 @@ function executeMerchantFreeDevelopCommand(
       },
     };
   }
-  const withCommand = commandEvent(resolved.state, envelope);
   const withResolution = appendEvent(
-    withCommand,
+    resolved.state,
     "MERCHANT_FREE_DEVELOP_RESOLVED",
     resolved.effect,
   );
@@ -653,7 +651,7 @@ function executeMerchantFreeDevelopCommand(
       },
     };
   }
-  return accept(state, lifecycle.state, {
+  return accept(state, commandEvent(lifecycle.state, envelope), {
     kind: "merchant_free_develop",
     effect: resolved.effect,
     turnComplete: lifecycle.turnComplete,
@@ -683,7 +681,7 @@ function executeSettlementCommand(
     );
   }
   const result = resolveCompletedRoundV2(
-    commandEvent(state, envelope),
+    state,
     envelope.command.liquidationChoices,
   );
   if (!result.ok) {
@@ -698,7 +696,7 @@ function executeSettlementCommand(
       },
     };
   }
-  return accept(state, result.state, {
+  return accept(state, commandEvent(result.state, envelope), {
     kind: "round_settlement",
     eraComplete: result.eraComplete,
     settlements: result.settlements,

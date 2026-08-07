@@ -2,12 +2,27 @@
 
 import { useMemo, useState } from "react";
 import { createGameV2, type GameStateV2 } from "@/engine/game-v2/state";
-import { GameV2DevInspector } from "@/ui/GameV2DevInspector";
+import type { PlayableCardId } from "@/engine/cards-v2/types";
+import { GameV2HotseatPrototype } from "@/ui/GameV2HotseatPrototype";
 import {
   gameV2DevSeats,
-  toGameV2DevModel,
   type GameV2DevPlayerCount,
 } from "@/ui/game-v2-dev-model";
+import {
+  createHotseatSession,
+  hideHotseatHand,
+  resetHotseatSession,
+  revealHotseatHand,
+  setHotseatDraft,
+  submitHotseatCommand,
+  toHotseatViewModel,
+} from "@/ui/hotseat-session";
+import {
+  hotseatCardDraft,
+  selectedHotseatCardId,
+  toHotseatPrototypeModel,
+  type HotseatSimpleCardAction,
+} from "@/ui/hotseat-prototype-model";
 
 const DEFAULT_SEED = "game-v2-dev-alpha";
 
@@ -18,11 +33,36 @@ function newGame(playerCount: GameV2DevPlayerCount, seed: string): GameStateV2 {
 export default function DevPage() {
   const [playerCount, setPlayerCount] = useState<GameV2DevPlayerCount>(2);
   const [seed, setSeed] = useState(DEFAULT_SEED);
-  const [state, setState] = useState<GameStateV2>(() => newGame(2, DEFAULT_SEED));
-  const model = useMemo(() => toGameV2DevModel(state), [state]);
+  const [session, setSession] = useState(() =>
+    createHotseatSession(newGame(2, DEFAULT_SEED))
+  );
+  const model = useMemo(
+    () => toHotseatPrototypeModel(toHotseatViewModel(session)),
+    [session],
+  );
 
-  function reset(nextPlayerCount = playerCount): void {
-    setState(newGame(nextPlayerCount, seed));
+  function reset(): void {
+    setSession((current) =>
+      resetHotseatSession(current, newGame(playerCount, seed))
+    );
+  }
+
+  function selectCard(cardId: PlayableCardId): void {
+    setSession((current) =>
+      setHotseatDraft(current, hotseatCardDraft(cardId))
+    );
+  }
+
+  function submitCardAction(type: HotseatSimpleCardAction): void {
+    setSession((current) => {
+      const cardId = selectedHotseatCardId(current.draft);
+      if (cardId === null) return current;
+      const withTypedDraft = setHotseatDraft(
+        current,
+        hotseatCardDraft(cardId, type),
+      );
+      return submitHotseatCommand(withTypedDraft, { type, cardId });
+    });
   }
 
   return (
@@ -38,7 +78,6 @@ export default function DevPage() {
                 onChange={(event) => {
                   const count = Number(event.target.value) as GameV2DevPlayerCount;
                   setPlayerCount(count);
-                  reset(count);
                 }}
                 value={playerCount}
               >
@@ -60,18 +99,43 @@ export default function DevPage() {
 
             <button
               className="rounded border border-slate-500 bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:border-neutral-500 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-white"
-              onClick={() => reset()}
+              onClick={reset}
               type="button"
             >
-              Reset snapshot
+              New / reset game
             </button>
           </div>
           <p className="mt-2 text-xs text-slate-500 dark:text-neutral-400">
-            Player-count changes reset immediately. Seed edits apply when you reset.
+            Player and seed changes apply when you start a new game. Progress is currently in memory only.
           </p>
         </section>
 
-        <GameV2DevInspector model={model} />
+        <GameV2HotseatPrototype
+          model={model}
+          onHide={() => setSession(hideHotseatHand)}
+          onLoan={() => submitCardAction("LOAN")}
+          onPass={() => submitCardAction("PASS")}
+          onResolveEra={() =>
+            setSession((current) =>
+              submitHotseatCommand(current, { type: "RESOLVE_ERA" })
+            )
+          }
+          onReveal={() => setSession(revealHotseatHand)}
+          onSelectCard={selectCard}
+          onSettleRound={() =>
+            setSession((current) => {
+              const choices = model.boundary?.kind === "round_settlement"
+                ? model.boundary.automaticLiquidationChoices
+                : null;
+              return choices === null
+                ? current
+                : submitHotseatCommand(current, {
+                    type: "SETTLE_ROUND",
+                    liquidationChoices: choices,
+                  });
+            })
+          }
+        />
       </div>
     </main>
   );

@@ -242,6 +242,104 @@ describe("GameStateV2 deterministic setup", () => {
         "PROGRESS_STATE",
       );
     }
+
+    const activeGloucester = initial.merchants.spaces.find(
+      (space) =>
+        space.active && space.locationId === "merchant_gloucester",
+    );
+    if (!activeGloucester) {
+      throw new Error("Expected an active Gloucester Merchant space");
+    }
+    const inactivePending: GameStateV2 = {
+      ...initial,
+      progress: {
+        phase: "merchant_free_develop",
+        pending: {
+          seat: "alice",
+          count: 1,
+          source: "merchant_bonus",
+          merchantSpaceIds: [activeGloucester.merchantSpaceId],
+        },
+      },
+      merchants: {
+        ...initial.merchants,
+        spaces: initial.merchants.spaces.map((space) =>
+          space.merchantSpaceId === activeGloucester.merchantSpaceId
+            ? { ...space, active: false, tileId: null, demandIndustries: [], beer: 0 }
+            : space
+        ),
+      },
+    };
+    const inactiveResult = validateGameStateV2(inactivePending);
+    expect(inactiveResult).toMatchObject({ ok: false });
+    if (inactiveResult.ok) throw new Error("Expected invalid inactive bonus");
+    expect(inactiveResult.errors.map((error) => error.code)).toContain(
+      "PROGRESS_STATE",
+    );
+  });
+
+  it("validates canonical COMMAND_APPLIED payloads and revision order", () => {
+    const initial = createGameV2(["alice", "bob"], "command-events");
+    const event = {
+      sequence: initial.events.length,
+      type: "COMMAND_APPLIED",
+      data: {
+        commandSchemaVersion: 1,
+        commandId: "pass-alice",
+        commandType: "PASS",
+        actorSeat: "alice",
+        expectedRevision: 0,
+        appliedRevision: 1,
+      },
+    };
+    const valid: GameStateV2 = {
+      ...initial,
+      revision: 1,
+      events: [...initial.events, event],
+    };
+    expect(validateGameStateV2(valid)).toMatchObject({ ok: true });
+
+    const payloadCorruptions = [
+      { ...event.data, commandSchemaVersion: 2 },
+      { ...event.data, commandId: "" },
+      { ...event.data, commandType: "UNKNOWN" },
+      { ...event.data, actorSeat: null },
+      { ...event.data, expectedRevision: -1 },
+      { ...event.data, appliedRevision: 2 },
+    ];
+    for (const data of payloadCorruptions) {
+      const invalid: GameStateV2 = {
+        ...valid,
+        events: [...initial.events, { ...event, data }],
+      };
+      const result = validateGameStateV2(invalid);
+      expect(result).toMatchObject({ ok: false });
+      if (result.ok) throw new Error("Expected invalid command event");
+      expect(result.errors.map((error) => error.code)).toContain("EVENT_LOG");
+    }
+
+    const duplicate: GameStateV2 = {
+      ...valid,
+      revision: 2,
+      events: [
+        ...valid.events,
+        {
+          ...event,
+          sequence: valid.events.length,
+          data: {
+            ...event.data,
+            expectedRevision: 1,
+            appliedRevision: 2,
+          },
+        },
+      ],
+    };
+    const duplicateResult = validateGameStateV2(duplicate);
+    expect(duplicateResult).toMatchObject({ ok: false });
+    if (duplicateResult.ok) throw new Error("Expected duplicate command ID");
+    expect(duplicateResult.errors.map((error) => error.code)).toContain(
+      "EVENT_LOG",
+    );
   });
 
   it("rejects malformed schema, identity, RNG, and turn state", () => {

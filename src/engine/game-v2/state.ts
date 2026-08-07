@@ -380,6 +380,76 @@ function isJsonSafe(value: unknown, ancestors = new Set<object>()): boolean {
   return Object.values(value).every((item) => isJsonSafe(item, nextAncestors));
 }
 
+const GAME_V2_COMMAND_TYPES = new Set([
+  "BUILD",
+  "NETWORK",
+  "DEVELOP",
+  "SELL",
+  "LOAN",
+  "SCOUT",
+  "PASS",
+  "RESOLVE_MERCHANT_FREE_DEVELOP",
+  "SETTLE_ROUND",
+  "RESOLVE_ERA",
+]);
+const PLAYER_GAME_V2_COMMAND_TYPES = new Set([
+  "BUILD",
+  "NETWORK",
+  "DEVELOP",
+  "SELL",
+  "LOAN",
+  "SCOUT",
+  "PASS",
+  "RESOLVE_MERCHANT_FREE_DEVELOP",
+]);
+
+type DerivedProgressPhaseV2 = GameProgressV2["phase"] | "invalid";
+
+function deriveProgressPhaseFromEvents(
+  state: GameStateV2,
+  events: readonly GameEventV2[],
+): DerivedProgressPhaseV2 {
+  const latest = [...events].reverse().find((event) =>
+    event.type === "GAME_CREATED" ||
+    event.type === "ACTION_ACCEPTED" ||
+    event.type === "ROUND_SETTLED" ||
+    event.type === "ERA_SCORED" ||
+    event.type === "RAIL_STARTED" ||
+    event.type === "GAME_ENDED"
+  );
+  if (!latest || latest.type === "GAME_CREATED") return "action";
+  if (latest.type === "GAME_ENDED") return "ended";
+  if (latest.type === "ERA_SCORED") return "invalid";
+  if (latest.type === "RAIL_STARTED") {
+    return state.era === "rail" ? "action" : "invalid";
+  }
+  if (!isRecord(latest.data)) return "invalid";
+  if (latest.type === "ACTION_ACCEPTED") {
+    if (
+      latest.data.era !== state.era ||
+      latest.data.round !== state.round ||
+      typeof latest.data.roundComplete !== "boolean"
+    ) return "invalid";
+    return latest.data.roundComplete ? "round_settlement" : "action";
+  }
+  if (
+    latest.data.settlementComplete !== true ||
+    latest.data.era !== state.era ||
+    typeof latest.data.eraComplete !== "boolean"
+  ) return "invalid";
+  if (
+    latest.data.eraComplete === true &&
+    latest.data.completedRound === state.round &&
+    latest.data.nextRound === null
+  ) return "era_transition";
+  if (
+    latest.data.eraComplete === false &&
+    latest.data.completedRound === state.round - 1 &&
+    latest.data.nextRound === state.round
+  ) return "action";
+  return "invalid";
+}
+
 /** Validates state invariants at a deserialize/replay boundary without mutation. */
 export function validateGameStateV2(value: unknown): GameStateV2ValidationResult {
   const errors: GameStateV2ValidationError[] = [];
@@ -795,6 +865,61 @@ export function validateGameStateV2(value: unknown): GameStateV2ValidationResult
     }
   }
 
+  const events = Array.isArray(state.events)
+    ? state.events.filter(
+        (event): event is GameEventV2 => isRecord(event),
+      )
+    : [];
+  const commandIds = new Set<string>();
+  let previousAppliedRevision = -1;
+  let commandEventsValid = true;
+  for (const event of events) {
+    if (event.type !== "COMMAND_APPLIED") continue;
+    const data = event.data;
+    const expectedRevision = isRecord(data) ? data.expectedRevision : undefined;
+    const appliedRevision = isRecord(data) ? data.appliedRevision : undefined;
+    const commandId = isRecord(data) ? data.commandId : undefined;
+    const commandType = isRecord(data) ? data.commandType : undefined;
+    const actorSeat = isRecord(data) ? data.actorSeat : undefined;
+    const playerCommand =
+      typeof commandType === "string" &&
+      PLAYER_GAME_V2_COMMAND_TYPES.has(commandType);
+    const systemCommand = commandType === "SETTLE_ROUND" ||
+      commandType === "RESOLVE_ERA";
+    if (
+      !isRecord(data) ||
+      data.commandSchemaVersion !== 1 ||
+      typeof commandId !== "string" ||
+      commandId.trim().length === 0 ||
+      commandId.length > 128 ||
+      commandIds.has(commandId) ||
+      typeof commandType !== "string" ||
+      !GAME_V2_COMMAND_TYPES.has(commandType) ||
+      !Number.isSafeInteger(expectedRevision) ||
+      (expectedRevision as number) < 0 ||
+      !Number.isSafeInteger(appliedRevision) ||
+      appliedRevision !== (expectedRevision as number) + 1 ||
+      (appliedRevision as number) <= previousAppliedRevision ||
+      (appliedRevision as number) > state.revision ||
+      (playerCommand &&
+        (typeof actorSeat !== "string" || !order.includes(actorSeat))) ||
+      (systemCommand && actorSeat !== null)
+    ) {
+      commandEventsValid = false;
+    }
+    if (typeof commandId === "string") commandIds.add(commandId);
+    if (Number.isSafeInteger(appliedRevision)) {
+      previousAppliedRevision = appliedRevision as number;
+    }
+  }
+  if (!commandEventsValid) {
+    add(
+      "EVENT_LOG",
+      "events",
+      "COMMAND_APPLIED payloads must be canonical, uniquely identified, and revision ordered.",
+    );
+  }
+
   const progress = state.progress;
   let progressValid = isRecord(progress);
   const progressPhase = isRecord(progress) ? progress.phase : undefined;
@@ -895,48 +1020,68 @@ export function validateGameStateV2(value: unknown): GameStateV2ValidationResult
     progressValid = false;
   }
 
-  const events = Array.isArray(state.events) ? state.events : [];
-  const gameEndedEvents = events.filter(
-    (event) => isRecord(event) && event.type === "GAME_ENDED",
-  );
-  const gameEndedEvent = gameEndedEvents[0];
-  const hasCompletedRound = events.some(
-    (event) =>
-      isRecord(event) &&
-      event.type === "ACTION_ACCEPTED" &&
-      isRecord(event.data) &&
-      event.data.roundComplete === true &&
-      event.data.era === state.era &&
-      event.data.round === state.round,
-  );
-  const hasCompletedEraSettlement = events.some(
-    (event) =>
-      isRecord(event) &&
-      event.type === "ROUND_SETTLED" &&
-      isRecord(event.data) &&
-      event.data.settlementComplete === true &&
-      event.data.eraComplete === true &&
-      event.data.era === state.era &&
-      event.data.completedRound === state.round,
-  );
-  const expectedProgressPhase = gameEndedEvent
-    ? "ended"
-    : hasCompletedEraSettlement
-      ? "era_transition"
-      : hasCompletedRound
-        ? "round_settlement"
-        : "action";
-  const phaseMatchesBoundary = progressPhase === expectedProgressPhase ||
-    (expectedProgressPhase === "action" &&
+  const derivedProgressPhase = deriveProgressPhaseFromEvents(state, events);
+  const phaseMatchesBoundary = progressPhase === derivedProgressPhase ||
+    (derivedProgressPhase === "action" &&
       progressPhase === "merchant_free_develop");
   if (!phaseMatchesBoundary) progressValid = false;
+  const atFinalEraCardBoundary =
+    state.round === maxRounds &&
+    Array.isArray(state.cards?.draw) &&
+    state.cards.draw.length === 0 &&
+    order.every(
+      (seat) => Array.isArray(state.cards?.hands?.[seat]) &&
+        state.cards.hands[seat].length === 0,
+    ) &&
+    state.cards?.wildSupplies?.location === WILD_CARD_SUPPLY.location &&
+    state.cards?.wildSupplies?.industry === WILD_CARD_SUPPLY.industry;
+  if (progressPhase === "era_transition" && !atFinalEraCardBoundary) {
+    progressValid = false;
+  }
   if (progressPhase === "ended") {
+    const gameEndedIndices = events.flatMap((event, index) =>
+      event.type === "GAME_ENDED" ? [index] : []
+    );
+    const gameEndedIndex = gameEndedIndices[0] ?? -1;
+    const gameEndedEvent = events[gameEndedIndex];
+    const eraScoredEvent = events[gameEndedIndex - 1];
+    const eventBeforeScoring = events[gameEndedIndex - 2];
+    const settlementCommandBetween =
+      eventBeforeScoring?.type === "COMMAND_APPLIED" &&
+      isRecord(eventBeforeScoring.data) &&
+      eventBeforeScoring.data.commandType === "SETTLE_ROUND" &&
+      eventBeforeScoring.data.actorSeat === null;
+    const settlementEvent = events[
+      gameEndedIndex - (settlementCommandBetween ? 3 : 2)
+    ];
+    const settlementData = settlementEvent?.data;
+    const eraScoredData = eraScoredEvent?.data;
+    const trailingEvents = events.slice(gameEndedIndex + 1);
+    const trailingResolveEraCommand =
+      trailingEvents.length === 1 &&
+      trailingEvents[0].type === "COMMAND_APPLIED" &&
+      isRecord(trailingEvents[0].data) &&
+      trailingEvents[0].data.commandType === "RESOLVE_ERA" &&
+      trailingEvents[0].data.actorSeat === null &&
+      trailingEvents[0].data.appliedRevision === state.revision;
     if (
-      gameEndedEvents.length !== 1 ||
+      state.era !== "rail" ||
+      !atFinalEraCardBoundary ||
+      gameEndedIndices.length !== 1 ||
+      settlementEvent?.type !== "ROUND_SETTLED" ||
+      !isRecord(settlementData) ||
+      settlementData.settlementComplete !== true ||
+      settlementData.era !== "rail" ||
+      settlementData.completedRound !== state.round ||
+      settlementData.eraComplete !== true ||
+      eraScoredEvent?.type !== "ERA_SCORED" ||
+      !isRecord(eraScoredData) ||
+      eraScoredData.era !== "rail" ||
       !isRecord(gameEndedEvent?.data) ||
       canonicalStandings === null ||
       JSON.stringify(gameEndedEvent.data.standings) !==
-        JSON.stringify(canonicalStandings)
+        JSON.stringify(canonicalStandings) ||
+      (trailingEvents.length !== 0 && !trailingResolveEraCommand)
     ) {
       progressValid = false;
     }

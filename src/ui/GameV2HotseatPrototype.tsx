@@ -1,0 +1,283 @@
+import type { PlayableCardId } from "@/engine/cards-v2/types";
+import type { HotseatPrototypeModel } from "@/ui/hotseat-prototype-model";
+
+type GameV2HotseatPrototypeProps = {
+  readonly model: HotseatPrototypeModel;
+  readonly onReveal: () => void;
+  readonly onHide: () => void;
+  readonly onSelectCard: (cardId: PlayableCardId) => void;
+  readonly onPass: () => void;
+  readonly onLoan: () => void;
+  readonly onSettleRound: () => void;
+  readonly onResolveEra: () => void;
+};
+
+const panel =
+  "rounded-lg border border-slate-300 bg-white p-4 shadow-sm dark:border-neutral-700 dark:bg-neutral-950";
+const inset =
+  "rounded border border-slate-200 bg-slate-50 p-3 dark:border-neutral-800 dark:bg-neutral-900";
+const primaryButton =
+  "rounded border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-400 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-white";
+const secondaryButton =
+  "rounded border border-slate-400 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-600 dark:bg-neutral-900 dark:hover:bg-neutral-800";
+
+function Emoji({ children }: { readonly children: string }) {
+  return <span aria-hidden="true">{children}</span>;
+}
+
+export function GameV2HotseatPrototype({
+  model,
+  onReveal,
+  onHide,
+  onSelectCard,
+  onPass,
+  onLoan,
+  onSettleRound,
+  onResolveEra,
+}: GameV2HotseatPrototypeProps) {
+  const game = model.public;
+  const selectedCardId = model.private?.selectedCardId ?? null;
+
+  return (
+    <div className="space-y-5">
+      <section className={panel}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="mb-2 flex flex-wrap gap-2">
+              <span className="rounded border border-emerald-600 bg-emerald-50 px-2 py-1 text-xs font-bold tracking-wide text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200">
+                HOT-SEAT ALPHA
+              </span>
+              <span className="rounded border border-slate-400 px-2 py-1 text-xs font-bold tracking-wide">
+                PASS + LOAN
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold">Brass: Birmingham playable prototype</h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-neutral-300">
+              Pass the device between players. Only the revealed player&apos;s hand is mounted.
+            </p>
+          </div>
+          <div className="text-right font-mono text-xs text-slate-500 dark:text-neutral-400">
+            <p>{game.identity.gameId}</p>
+            <p>revision {game.identity.revision}</p>
+          </div>
+        </div>
+
+        <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          {[
+            ["Era", game.turn.era],
+            ["Round", game.turn.round],
+            ["Turn", game.turn.turnNumber],
+            ["Current", game.turn.currentSeat],
+            ["Actions", `${game.turn.actionsUsed}/${game.turn.actionLimit}`],
+            ["Phase", game.progress.phase],
+          ].map(([label, value]) => (
+            <div className={inset} key={label}>
+              <dt className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-neutral-400">
+                {label}
+              </dt>
+              <dd className="mt-0.5 font-mono text-sm font-semibold">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      {model.feedback?.kind === "error" ? (
+        <section
+          className="rounded-lg border border-red-500 bg-red-50 p-4 text-red-950 dark:border-red-700 dark:bg-red-950/40 dark:text-red-100"
+          role="alert"
+        >
+          <p className="font-bold">Action rejected</p>
+          <p className="mt-1 text-sm">{model.feedback.message}</p>
+          <p className="mt-2 font-mono text-xs">
+            {model.feedback.source}:{model.feedback.code} · {model.feedback.commandId}
+          </p>
+        </section>
+      ) : null}
+
+      {model.feedback?.kind === "accepted" ? (
+        <section
+          aria-live="polite"
+          className="rounded-lg border border-emerald-500 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100"
+          role="status"
+        >
+          <p className="font-bold">{model.feedback.message}</p>
+          <p className="mt-1 font-mono text-xs">{model.feedback.commandId}</p>
+        </section>
+      ) : null}
+
+      {model.handoff ? (
+        <section className={`${panel} text-center`} aria-labelledby="handoff-title">
+          <p className="text-4xl"><Emoji>🙈</Emoji></p>
+          <h2 className="mt-2 text-2xl font-bold" id="handoff-title">
+            Pass the device to {model.handoff.nextSeat}
+          </h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600 dark:text-neutral-300">
+            No hand is visible. When everyone else is looking away, reveal the current hand.
+          </p>
+          <button autoFocus className={`${primaryButton} mt-4`} onClick={onReveal} type="button">
+            <Emoji>👁️</Emoji> Reveal {model.handoff.nextSeat}&apos;s hand
+          </button>
+        </section>
+      ) : null}
+
+      {model.boundary?.kind === "round_settlement" ? (
+        <section className={panel}>
+          <h2 className="text-xl font-bold"><Emoji>💷</Emoji> Round complete</h2>
+          <p className="mt-2 text-sm text-slate-600 dark:text-neutral-300">
+            {model.boundary.automaticLiquidationChoices === null
+              ? "At least one player must choose industries to liquidate before income can be settled. That control is the next settlement slice."
+              : "Apply income and determine the next turn order. No asset-sale decision is required."}
+          </p>
+          <button
+            className={`${primaryButton} mt-4`}
+            disabled={model.boundary.automaticLiquidationChoices === null}
+            onClick={onSettleRound}
+            type="button"
+          >
+            Continue to round settlement
+          </button>
+        </section>
+      ) : null}
+
+      {model.boundary?.kind === "era_transition" ? (
+        <section className={panel}>
+          <h2 className="text-xl font-bold"><Emoji>🏁</Emoji> Era complete</h2>
+          <p className="mt-2 text-sm text-slate-600 dark:text-neutral-300">
+            Score links and flipped industries, then continue to the next era or final standings.
+          </p>
+          <button className={`${primaryButton} mt-4`} onClick={onResolveEra} type="button">
+            Score era and continue
+          </button>
+        </section>
+      ) : null}
+
+      {model.boundary?.kind === "merchant_free_develop" ? (
+        <section className={panel}>
+          <h2 className="text-xl font-bold"><Emoji>🛒</Emoji> Merchant free Develop pending</h2>
+          <p className="mt-2 text-sm">
+            {model.boundary.seat} must remove {model.boundary.count} industry tile(s).
+            The Sell and free-Develop controls are the next UI slice.
+          </p>
+        </section>
+      ) : null}
+
+      {model.boundary?.kind === "ended" ? (
+        <section className={panel}>
+          <h2 className="text-2xl font-bold"><Emoji>🏆</Emoji> Final standings</h2>
+          <ol className="mt-3 grid gap-2 sm:grid-cols-2">
+            {model.boundary.standings.map((standing) => (
+              <li className={inset} key={standing.playerId}>
+                <strong>#{standing.rank} {standing.playerId}</strong>
+                <p className="mt-1 text-sm">
+                  {standing.victoryPoints} VP · income {standing.incomeLevel} · £{standing.cash}
+                  {standing.tied ? " · tied" : ""}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      {model.private ? (
+        <section className={panel} aria-labelledby="private-hand-title">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold" id="private-hand-title">
+                <Emoji>🃏</Emoji> {model.private.seat}&apos;s private hand
+              </h2>
+              <p className="mt-1 text-sm text-slate-600 dark:text-neutral-300">
+                Select one card, then Pass or take a £30 Loan.
+              </p>
+            </div>
+            <button className={secondaryButton} onClick={onHide} type="button">
+              <Emoji>🙈</Emoji> Hide hand
+            </button>
+          </div>
+
+          <fieldset className="mt-4">
+            <legend className="text-sm font-bold">Choose a card</legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {model.private.cards.map((card, index) => {
+                const selected = card.id === selectedCardId;
+                return (
+                  <button
+                    aria-pressed={selected}
+                    className={`rounded border p-3 text-left text-sm transition ${
+                      selected
+                        ? "border-amber-500 bg-amber-50 ring-2 ring-amber-300 dark:border-amber-600 dark:bg-amber-950/40 dark:ring-amber-800"
+                        : "border-slate-300 bg-white hover:border-slate-500 dark:border-neutral-700 dark:bg-neutral-950 dark:hover:border-neutral-500"
+                    }`}
+                    key={`${card.id}:${index}`}
+                    onClick={() => onSelectCard(card.id)}
+                    title={card.id}
+                    type="button"
+                  >
+                    <span><Emoji>🃏</Emoji> {card.label}</span>
+                    <span className="mt-1 block truncate font-mono text-[10px] text-slate-500 dark:text-neutral-400">
+                      {card.id}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button className={secondaryButton} disabled={!selectedCardId} onClick={onPass} type="button">
+              <Emoji>⏭️</Emoji> Pass
+            </button>
+            <button className={primaryButton} disabled={!selectedCardId} onClick={onLoan} type="button">
+              <Emoji>💰</Emoji> Take Loan (£30)
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      <section className={panel}>
+        <h2 className="text-lg font-bold"><Emoji>👥</Emoji> Public player state</h2>
+        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          {game.players.map((player) => (
+            <article
+              className={`${inset} ${player.isCurrent ? "ring-2 ring-amber-400 dark:ring-amber-700" : ""}`}
+              key={player.seat}
+            >
+              <h3 className="font-bold">{player.isCurrent ? "▶️ " : ""}{player.seat}</h3>
+              <p className="mt-1 text-sm">
+                £{player.money} · income marker {player.incomeMarkerSpace} · {player.victoryPoints} VP
+              </p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-neutral-400">
+                {player.handCount} hidden cards · {player.linkTokensRemaining} links
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section className={panel}>
+          <h2 className="text-lg font-bold"><Emoji>📦</Emoji> Public board summary</h2>
+          <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className={inset}><dt className="text-xs">Built links</dt><dd className="font-mono font-bold">{game.board.builtLinks.length}</dd></div>
+            <div className={inset}><dt className="text-xs">Industries</dt><dd className="font-mono font-bold">{game.board.placedIndustries.length}</dd></div>
+            <div className={inset}><dt className="text-xs">Coal market</dt><dd className="font-mono font-bold">{game.market.coal}</dd></div>
+            <div className={inset}><dt className="text-xs">Iron market</dt><dd className="font-mono font-bold">{game.market.iron}</dd></div>
+          </dl>
+          <p className="mt-3 text-sm text-slate-600 dark:text-neutral-300">
+            Draw {game.cards.drawCount} · discard {game.cards.discardCount} · wild location {game.cards.wildLocationCount} · wild industry {game.cards.wildIndustryCount}
+          </p>
+        </section>
+
+        <section className={panel}>
+          <h2 className="text-lg font-bold"><Emoji>🧾</Emoji> Public event types</h2>
+          <ol className="mt-3 space-y-1 font-mono text-xs">
+            {game.recentEvents.map((event) => (
+              <li className={inset} key={event.sequence}>
+                #{event.sequence} {event.type}
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+    </div>
+  );
+}

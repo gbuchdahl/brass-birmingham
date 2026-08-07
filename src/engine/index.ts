@@ -257,6 +257,19 @@ export {
   type MerchantFreeDevelopSelectionV2,
 } from "./game-v2/merchant-free-develop";
 export {
+  getGameV2LegalOptions,
+  type GameV2LegalCommandKind,
+  type GameV2LegalOptions,
+  type GameV2LegalityDisabledReason,
+  type GameV2LegalityDisabledReasonCode,
+  type GameV2MerchantFreeDevelopOptions,
+  type GameV2PlayerActionAvailability,
+  type GameV2PlayerActionKind,
+  type GameV2ScoutOptions,
+  type GameV2SystemCommandKind,
+  type GameV2SystemCommandOptions,
+} from "./game-v2/legal";
+export {
   applyAcceptedActionV2,
   resolveCompletedRoundV2,
   type AcceptedActionEffectV2,

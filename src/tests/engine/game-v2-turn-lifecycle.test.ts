@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { discardActionCard } from "@/engine/cards-v2/zones";
 import {
   highestSpaceForIncomeLevel,
-  incomeLevelAt,
 } from "@/engine/economy/income";
+import { resolveGameEra } from "@/engine/game-v2/era-lifecycle";
 import {
   applyAcceptedActionV2,
   resolveCompletedRoundV2,
@@ -17,7 +17,6 @@ import {
 } from "@/engine/game-v2/state";
 import { removeBuiltIndustryTile } from "@/engine/player-v2";
 import { SETUP_DATA } from "@/engine/rules/generated/ruleset";
-import { rankFinalStandings } from "@/engine/scoring/era-transition";
 
 function requireAccepted(
   result: ReturnType<typeof applyAcceptedActionV2>,
@@ -71,6 +70,33 @@ function completeRound(
     state = accepted.state;
     if (accepted.roundComplete) return state;
   }
+}
+
+function withFinalRoundCards(state: GameStateV2): GameStateV2 {
+  const regularCards = [
+    ...state.turnOrder.flatMap((seat) => state.cards.hands[seat]),
+    ...state.cards.draw,
+    ...state.cards.discard,
+  ].filter((cardId) => !cardId.startsWith("wild-"));
+  const cardsNeeded = state.turnOrder.length * state.actionLimit;
+  if (regularCards.length < cardsNeeded) {
+    throw new Error("Expected enough cards to complete the final round");
+  }
+  return {
+    ...state,
+    cards: {
+      hands: Object.fromEntries(state.turnOrder.map((seat, seatIndex) => [
+        seat,
+        regularCards.slice(
+          seatIndex * state.actionLimit,
+          (seatIndex + 1) * state.actionLimit,
+        ),
+      ])) as GameStateV2["cards"]["hands"],
+      draw: [],
+      discard: regularCards.slice(cardsNeeded) as GameStateV2["cards"]["discard"],
+      wildSupplies: { ...state.cards.wildSupplies },
+    },
+  };
 }
 
 function withIncome(
@@ -289,11 +315,11 @@ describe("GameStateV2 turn lifecycle", () => {
   it("settles income at the end of Canal but skips it after the final Rail round", () => {
     const maxCanalRound = SETUP_DATA.playerCounts[2].roundsPerEra;
     let canal = createGameV2(["alice", "bob"], "final-canal-income");
-    canal = {
+    canal = withFinalRoundCards({
       ...withIncome(canal, "alice", 2),
       round: maxCanalRound,
       actionLimit: 2,
-    };
+    });
     const canalResult = requireSettled(
       resolveCompletedRoundV2(completeRound(canal), {}),
     );
@@ -305,12 +331,12 @@ describe("GameStateV2 turn lifecycle", () => {
 
     const maxRailRound = SETUP_DATA.playerCounts[2].roundsPerEra;
     let rail = createGameV2(["alice", "bob"], "final-rail-income");
-    rail = {
+    rail = withFinalRoundCards({
       ...withIncome(rail, "alice", 2),
       era: "rail",
       round: maxRailRound,
       actionLimit: 2,
-    };
+    });
     const railResult = requireSettled(
       resolveCompletedRoundV2(completeRound(rail), {}),
     );
@@ -359,11 +385,11 @@ describe("GameStateV2 turn lifecycle", () => {
     expect(beforeSettlement.state).toBe(trailedRoundBoundary);
 
     const finalRound = SETUP_DATA.playerCounts[2].roundsPerEra;
-    const finalCanal: GameStateV2 = {
+    const finalCanal = withFinalRoundCards({
       ...createGameV2(["alice", "bob"], "era-action-barrier"),
       round: finalRound,
       actionLimit: 2,
-    };
+    });
     const finalBoundary = completeRound(finalCanal);
     const settled = requireSettled(resolveCompletedRoundV2(finalBoundary, {}));
     expect(settled.eraComplete).toBe(true);
@@ -399,28 +425,18 @@ describe("GameStateV2 turn lifecycle", () => {
   });
 
   it("blocks lifecycle transitions after GAME_ENDED", () => {
-    const base = createGameV2(["alice", "bob"], "ended-action-barrier");
-    const standings = rankFinalStandings(base.turnOrder.map((seat) => ({
-      playerId: seat,
-      victoryPoints: base.players[seat].victoryPoints,
-      incomeLevel: incomeLevelAt(base.players[seat].incomeMarkerSpace),
-      cash: base.players[seat].money,
-    })));
-    const endedMarker: GameStateV2 = {
-      ...base,
+    const base = withFinalRoundCards({
+      ...createGameV2(["alice", "bob"], "ended-action-barrier"),
       era: "rail",
+      round: SETUP_DATA.playerCounts[2].roundsPerEra,
       actionLimit: 2,
-      progress: { phase: "ended", terminal: { standings } },
-      events: [
-        ...base.events,
-        {
-          sequence: base.events.length,
-          type: "GAME_ENDED",
-          data: { standings },
-        },
-      ],
-    };
-    const ended = withTrailingUnrelatedEvent(endedMarker);
+    });
+    const boundary = completeRound(base);
+    const settled = requireSettled(resolveCompletedRoundV2(boundary, {}));
+    const resolved = resolveGameEra(settled.state);
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) throw new Error(resolved.error.message);
+    const ended = resolved.state;
     expect(validateGameStateV2(ended)).toMatchObject({ ok: true });
 
     const action = applyAcceptedActionV2(ended, {
@@ -444,12 +460,12 @@ describe("GameStateV2 turn lifecycle", () => {
   it("skips final Rail income without requiring liquidation choices", () => {
     const finalRound = SETUP_DATA.playerCounts[2].roundsPerEra;
     let rail = createGameV2(["alice", "bob"], "negative-final-rail");
-    rail = {
+    rail = withFinalRoundCards({
       ...withIncome(rail, "alice", -5, 0, 7),
       era: "rail",
       round: finalRound,
       actionLimit: 2,
-    };
+    });
     const boundary = completeRound(rail);
     expect(validateGameStateV2(boundary)).toMatchObject({ ok: true });
 

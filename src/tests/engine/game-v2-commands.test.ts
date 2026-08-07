@@ -239,8 +239,8 @@ describe("GameStateV2 versioned command execution", () => {
     expect(result.state.cards.hands.alice).toHaveLength(8);
     expect(result.state.cards.discard).toContain(cardId);
     expect(result.state.events.slice(-2).map((event) => event.type)).toEqual([
-      "COMMAND_APPLIED",
       "ACTION_ACCEPTED",
+      "COMMAND_APPLIED",
     ]);
     expect(result.outcome).toMatchObject({
       kind: "player_action",
@@ -418,10 +418,18 @@ describe("GameStateV2 versioned command execution", () => {
     }
   });
 
-  it("gives duplicate command IDs precedence over stale revisions", () => {
+  it("checks game identity, duplicate IDs, then revisions in stable order", () => {
     const state = createGameV2(["alice", "bob"], "command-duplicate");
     const first = executeGameV2Command(state, passCommand(state, "same-id"));
     expectSuccess(first);
+    const wrongGame = executeGameV2Command(first.state, {
+      ...passCommand(first.state, "same-id"),
+      gameId: "another-game",
+    });
+    expect(wrongGame).toMatchObject({
+      ok: false,
+      error: { code: "GAME_ID_MISMATCH" },
+    });
     const duplicate = executeGameV2Command(first.state, {
       ...passCommand(first.state, "same-id"),
       expectedRevision: 0,
@@ -431,6 +439,50 @@ describe("GameStateV2 versioned command execution", () => {
       error: { code: "COMMAND_ID_ALREADY_USED" },
     });
     expect(duplicate.state).toBe(first.state);
+  });
+
+  it("supports prototype-like seat IDs without corrupting command lookup", () => {
+    const state = createGameV2(
+      ["__proto__", "constructor"],
+      "command-prototype-seats",
+    );
+    const result = executeGameV2Command(
+      state,
+      passCommand(state, "prototype-pass"),
+    );
+
+    expectSuccess(result);
+    expect(result.state.currentSeat).toBe("constructor");
+    expect(result.state.players["__proto__"].seat).toBe("__proto__");
+    expect(Object.hasOwn(result.state.players, "constructor")).toBe(true);
+  });
+
+  it("accepts the last safe revision and rejects revision overflow", () => {
+    const base = createGameV2(["alice", "bob"], "command-revision-limit");
+    const lastSafeInput: GameStateV2 = {
+      ...base,
+      revision: Number.MAX_SAFE_INTEGER - 1,
+    };
+    const accepted = executeGameV2Command(
+      lastSafeInput,
+      passCommand(lastSafeInput, "last-safe-revision"),
+    );
+    expectSuccess(accepted);
+    expect(accepted.state.revision).toBe(Number.MAX_SAFE_INTEGER);
+
+    const overflowState: GameStateV2 = {
+      ...base,
+      revision: Number.MAX_SAFE_INTEGER,
+    };
+    const rejected = executeGameV2Command(
+      overflowState,
+      passCommand(overflowState, "revision-overflow"),
+    );
+    expect(rejected).toMatchObject({
+      ok: false,
+      error: { code: "REVISION_OVERFLOW" },
+    });
+    expect(rejected.state).toBe(overflowState);
   });
 
   it("resolves a persisted Merchant free Develop before advancing the Sell", () => {
@@ -455,9 +507,9 @@ describe("GameStateV2 versioned command execution", () => {
     expect(result.state.cards.hands.alice).toHaveLength(cardCount);
     expect(result.state.roundSpend.alice).toBe(0);
     expect(result.state.events.slice(-3).map((event) => event.type)).toEqual([
-      "COMMAND_APPLIED",
       "MERCHANT_FREE_DEVELOP_RESOLVED",
       "ACTION_ACCEPTED",
+      "COMMAND_APPLIED",
     ]);
   });
 
@@ -522,8 +574,8 @@ describe("GameStateV2 versioned command execution", () => {
     expect(settled.state.round).toBe(2);
     expect(settled.state.progress).toEqual({ phase: "action" });
     expect(settled.state.events.slice(-2).map((event) => event.type)).toEqual([
-      "COMMAND_APPLIED",
       "ROUND_SETTLED",
+      "COMMAND_APPLIED",
     ]);
   });
 });
@@ -567,5 +619,41 @@ describe("GameStateV2 command replay", () => {
       error: { code: "REVISION_CONFLICT" },
     });
     expect(failed.state).toEqual(afterFirst.state);
+  });
+
+  it("plays and replays a complete two-era all-Pass game to final standings", () => {
+    const initial = createGameV2(["alice", "bob"], "command-complete-game");
+    const commands: GameV2CommandEnvelope[] = [];
+    let state = initial;
+
+    for (let ordinal = 1; ordinal <= 200; ordinal += 1) {
+      if (state.progress.phase === "ended") break;
+      const commandId = `complete-${ordinal}`;
+      const nextEnvelope = state.progress.phase === "action"
+        ? passCommand(state, commandId)
+        : state.progress.phase === "round_settlement"
+          ? envelope(state, commandId, null, {
+              type: "SETTLE_ROUND",
+              liquidationChoices: {},
+            })
+          : state.progress.phase === "era_transition"
+            ? envelope(state, commandId, null, { type: "RESOLVE_ERA" })
+            : null;
+      if (!nextEnvelope) {
+        throw new Error(`Unexpected complete-game phase: ${state.progress.phase}`);
+      }
+      const result = executeGameV2Command(state, nextEnvelope);
+      expectSuccess(result);
+      commands.push(nextEnvelope);
+      state = result.state;
+    }
+
+    expect(state.progress.phase).toBe("ended");
+    expect(state.era).toBe("rail");
+    expect(state.revision).toBe(commands.length);
+    expect(validateGameStateV2(state)).toMatchObject({ ok: true });
+    const replayed = replayGameV2Commands(initial, commands);
+    expect(replayed.ok).toBe(true);
+    expect(serializeGameV2(replayed.state)).toBe(serializeGameV2(state));
   });
 });

@@ -19,7 +19,8 @@ Run the development server:
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser. The root
+route redirects to the local hot-seat prototype at `/dev`.
 
 ## Verification
 
@@ -32,9 +33,11 @@ pnpm check
 For a faster gate that omits the production build, run `pnpm verify`. Generated
 rules artifacts are checked for staleness as part of both commands.
 
-You can start editing the public page in `src/app/(site)/page.tsx`. The page
-auto-updates as you edit the file. A read-only `GameStateV2` engine inspector is
-available at `/dev`.
+The `/dev` route is an intentionally plain hot-seat walking skeleton backed by
+the authoritative `GameStateV2` command reducer. Pass the device, reveal only
+the current player's hand, select a card, and use Pass or Loan to play through
+deterministic rounds and eras. Player count and seed changes take effect when
+you choose **New / reset game**; progress is currently held in memory only.
 
 ## Rules Data Workflow
 

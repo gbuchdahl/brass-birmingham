@@ -112,7 +112,15 @@ function atCompletedEraBoundary(state: GameStateV2): boolean {
   if (state.progress.phase !== "era_transition") return false;
   const playerCount = state.turnOrder.length as 2 | 3 | 4;
   const finalRound = SETUP_DATA.playerCounts[playerCount]?.roundsPerEra;
-  const settlementEvent = state.events.at(-1);
+  const settlementEvent = [...state.events].reverse().find(
+    (event) =>
+      event.type === "GAME_CREATED" ||
+      event.type === "ACTION_ACCEPTED" ||
+      event.type === "ROUND_SETTLED" ||
+      event.type === "ERA_SCORED" ||
+      event.type === "RAIL_STARTED" ||
+      event.type === "GAME_ENDED",
+  );
   if (
     settlementEvent?.type !== "ROUND_SETTLED" ||
     !isRecord(settlementEvent.data) ||

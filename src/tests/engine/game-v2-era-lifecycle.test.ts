@@ -516,7 +516,7 @@ describe("final Rail resolution", () => {
     expect(repeated.state).toBe(ended.state);
   });
 
-  it("rejects final scoring when any later event follows GAME_ENDED", () => {
+  it("rejects terminal states with an unrelated event after GAME_ENDED", () => {
     const rail = enterRail(["alice", "bob"], "ended-with-trailing-event");
     const ended = requireSuccess(
       resolveGameEra(settledEraBoundary(rail)),
@@ -533,20 +533,110 @@ describe("final Rail resolution", () => {
         },
       ],
     };
-    requireValid(trailing);
+    const validation = validateGameStateV2(trailing);
+    expect(validation).toMatchObject({ ok: false });
+    if (validation.ok) throw new Error("Expected invalid terminal provenance");
+    expect(validation.errors.map((error) => error.code)).toContain(
+      "PROGRESS_STATE",
+    );
 
     const repeated = resolveGameEra(trailing);
 
     expect(repeated).toMatchObject({
       ok: false,
-      error: { code: "ALREADY_ENDED" },
+      error: { code: "INVALID_GAME_STATE" },
     });
     expect(repeated.state).toBe(trailing);
-    requireValid(repeated.state);
+  });
+
+  it("allows the command reducer's trailing RESOLVE_ERA marker", () => {
+    const rail = enterRail(["alice", "bob"], "ended-command-marker");
+    const ended = requireSuccess(
+      resolveGameEra(settledEraBoundary(rail)),
+    );
+    const withCommand: GameStateV2 = {
+      ...ended.state,
+      events: [
+        ...ended.state.events,
+        {
+          sequence: ended.state.events.length,
+          type: "COMMAND_APPLIED",
+          data: {
+            commandSchemaVersion: 1,
+            commandId: "resolve-final-rail",
+            commandType: "RESOLVE_ERA",
+            actorSeat: null,
+            expectedRevision: ended.state.revision - 1,
+            appliedRevision: ended.state.revision,
+          },
+        },
+      ],
+    };
+
+    requireValid(withCommand);
+  });
+
+  it("rejects terminal states without final-boundary cards or scoring provenance", () => {
+    const rail = enterRail(["alice", "bob"], "invalid-terminal-provenance");
+    const ended = requireSuccess(
+      resolveGameEra(settledEraBoundary(rail)),
+    ).state;
+    const [card, ...remainingDiscard] = ended.cards.discard;
+    const nonemptyHand: GameStateV2 = {
+      ...ended,
+      cards: {
+        ...ended.cards,
+        hands: { ...ended.cards.hands, alice: [card] },
+        discard: remainingDiscard,
+      },
+    };
+    const withoutScoring: GameStateV2 = {
+      ...ended,
+      events: ended.events
+        .filter((event) => event.type !== "ERA_SCORED")
+        .map((event, sequence) => ({ ...event, sequence })),
+    };
+
+    for (const invalid of [nonemptyHand, withoutScoring]) {
+      const validation = validateGameStateV2(invalid);
+      expect(validation).toMatchObject({ ok: false });
+      if (validation.ok) throw new Error("Expected invalid terminal state");
+      expect(validation.errors.map((error) => error.code)).toContain(
+        "PROGRESS_STATE",
+      );
+    }
   });
 });
 
 describe("era lifecycle validation and immutability", () => {
+  it("uses the latest ordered lifecycle marker for authoritative progress", () => {
+    const settled = settledEraBoundary(
+      createGameV2(["alice", "bob"], "latest-era-marker"),
+    );
+    const laterRoundBoundary: GameStateV2 = {
+      ...settled,
+      events: [
+        ...settled.events,
+        {
+          sequence: settled.events.length,
+          type: "ACTION_ACCEPTED",
+          data: {
+            era: settled.era,
+            round: settled.round,
+            roundComplete: true,
+          },
+        },
+      ],
+    };
+
+    const validation = validateGameStateV2(laterRoundBoundary);
+    expect(validation).toMatchObject({ ok: false });
+    if (validation.ok) throw new Error("Expected later lifecycle conflict");
+    expect(validation.errors.map((error) => error.code)).toContain(
+      "PROGRESS_STATE",
+    );
+  });
+
   it("requires a matching final-round settlement event", () => {
     const completed = completedRoundBoundary(
       createGameV2(["alice", "bob"], "missing-settlement-marker"),
@@ -680,11 +770,16 @@ describe("era lifecycle validation and immutability", () => {
         discard: remainingDiscard,
       },
     };
-    requireValid(wrongCards);
+    const validation = validateGameStateV2(wrongCards);
+    expect(validation).toMatchObject({ ok: false });
+    if (validation.ok) throw new Error("Expected invalid era boundary cards");
+    expect(validation.errors.map((error) => error.code)).toContain(
+      "PROGRESS_STATE",
+    );
     const cardResult = resolveGameEra(wrongCards);
     expect(cardResult).toMatchObject({
       ok: false,
-      error: { code: "NOT_ERA_BOUNDARY" },
+      error: { code: "INVALID_GAME_STATE" },
     });
     expect(cardResult.state).toBe(wrongCards);
   });
