@@ -57,7 +57,8 @@ nonempty accepted prefix can be submitted as the completed action.
 Rail choices similarly expose exact link and coal-source plans: a legal
 one-link plan can be submitted immediately or promoted to inspect only its
 legal ordered two-link extensions, including the required own beer.
-Player count and seed changes take effect when you choose **New / reset game**.
+Player count and seed changes take effect after a two-step **New / reset game**
+confirmation tied to the current game revision and requested settings.
 Progress is corruption-checked and autosaved in this browser; reload always
 returns to a privacy-safe handoff screen. If play enters a Merchant free-Develop
 follow-up, its exact tile choice is also hidden behind the owning player's

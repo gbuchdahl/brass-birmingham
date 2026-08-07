@@ -38,6 +38,12 @@ async function resetGame(page: Page, seed: string): Promise<void> {
   ).toBeVisible();
   await page.getByLabel("Deterministic seed").fill(seed);
   await page.getByRole("button", { name: "New / reset game" }).click();
+  await expect(
+    page.getByRole("alertdialog", {
+      name: "Replace the current hot-seat game?",
+    }),
+  ).toContainText(seed);
+  await page.getByRole("button", { name: "Confirm new game" }).click();
   await expectRevision(page, 0);
   await expect(
     page.getByText("Saved revision 0 in this browser.", { exact: true }),

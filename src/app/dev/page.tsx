@@ -15,6 +15,14 @@ import {
   selectHotseatRailNetworkNextPlan,
 } from "@/ui/hotseat-rail-network-model";
 import {
+  cancelHotseatResetConfirmation,
+  confirmHotseatResetConfirmation,
+  idleHotseatResetConfirmation,
+  requestHotseatResetConfirmation,
+  type HotseatResetConfirmationState,
+  type HotseatResetContext,
+} from "@/ui/hotseat-reset-confirmation";
+import {
   clearHotseatSessionStorage,
   loadHotseatSessionFromStorage,
   saveHotseatSessionToStorage,
@@ -77,6 +85,10 @@ export default function DevPage() {
     kind: "checking",
     message: "Checking this browser for a saved game…",
   });
+  const [resetConfirmation, setResetConfirmation] = useState<
+    HotseatResetConfirmationState
+  >(idleHotseatResetConfirmation);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
   const preserveRestoreNotice = useRef(false);
   const model = useMemo(
     () =>
@@ -143,9 +155,49 @@ export default function DevPage() {
     }
   }, [autosaveEnabled, session]);
 
-  function reset(): void {
+  function resetContext(): HotseatResetContext {
+    return {
+      currentGame: {
+        gameId: session.state.gameId,
+        revision: session.state.revision,
+        playerCount: session.state.turnOrder.length as GameV2DevPlayerCount,
+        seed: session.state.seed,
+      },
+      requestedGame: { playerCount, seed },
+      localSavePresent: autosaveEnabled,
+    };
+  }
+
+  function requestReset(): void {
+    const next = requestHotseatResetConfirmation(resetContext());
+    setResetConfirmation(next);
+    setResetMessage(next.status === "invalid" ? next.message : null);
+  }
+
+  function cancelReset(): void {
+    setResetConfirmation(cancelHotseatResetConfirmation());
+    setResetMessage("New game canceled. The current game is unchanged.");
+  }
+
+  function confirmReset(): void {
+    const decision = confirmHotseatResetConfirmation(
+      resetConfirmation,
+      resetContext(),
+    );
+    setResetConfirmation(decision.nextState);
+    if (decision.status === "rejected") {
+      setResetMessage(decision.message);
+      return;
+    }
+    setResetMessage(null);
     setSession((current) =>
-      resetHotseatSession(current, newGame(playerCount, seed))
+      resetHotseatSession(
+        current,
+        newGame(
+          decision.requestedGame.playerCount,
+          decision.requestedGame.seed,
+        ),
+      )
     );
   }
 
@@ -555,6 +607,8 @@ export default function DevPage() {
                 onChange={(event) => {
                   const count = Number(event.target.value) as GameV2DevPlayerCount;
                   setPlayerCount(count);
+                  setResetConfirmation(idleHotseatResetConfirmation());
+                  setResetMessage(null);
                 }}
                 value={playerCount}
               >
@@ -568,7 +622,11 @@ export default function DevPage() {
               Deterministic seed
               <input
                 className="rounded border border-slate-400 bg-white px-3 py-2 font-mono text-sm font-normal text-slate-950 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
-                onChange={(event) => setSeed(event.target.value)}
+                onChange={(event) => {
+                  setSeed(event.target.value);
+                  setResetConfirmation(idleHotseatResetConfirmation());
+                  setResetMessage(null);
+                }}
                 spellCheck={false}
                 value={seed}
               />
@@ -576,7 +634,7 @@ export default function DevPage() {
 
             <button
               className="rounded border border-slate-500 bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:border-neutral-500 dark:bg-neutral-100 dark:text-neutral-950 dark:hover:bg-white"
-              onClick={reset}
+              onClick={requestReset}
               type="button"
             >
               New / reset game
@@ -585,6 +643,39 @@ export default function DevPage() {
           <p className="mt-2 text-xs text-slate-500 dark:text-neutral-400">
             Player and seed changes apply when you start a new game. Saves are local to this browser and single-tab only.
           </p>
+          {resetConfirmation.status === "pending" ? (
+            <div
+              aria-labelledby="hotseat-reset-warning-title"
+              className="mt-3 rounded border border-amber-500 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100"
+              role="alertdialog"
+            >
+              <h2 className="font-bold" id="hotseat-reset-warning-title">
+                {resetConfirmation.warning.title}
+              </h2>
+              <p className="mt-1">{resetConfirmation.warning.message}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  className="rounded border border-amber-700 px-3 py-2 font-semibold hover:bg-amber-100 dark:border-amber-500 dark:hover:bg-amber-900"
+                  onClick={cancelReset}
+                  type="button"
+                >
+                  Cancel reset
+                </button>
+                <button
+                  className="rounded border border-red-700 bg-red-700 px-3 py-2 font-semibold text-white hover:bg-red-600 dark:border-red-500"
+                  onClick={confirmReset}
+                  type="button"
+                >
+                  Confirm new game
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {resetMessage === null ? null : (
+            <p aria-live="polite" className="mt-2 text-xs font-semibold">
+              {resetMessage}
+            </p>
+          )}
           <div
             aria-live="polite"
             className={`mt-2 rounded border px-3 py-2 text-xs ${

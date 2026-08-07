@@ -84,6 +84,10 @@ deterministic rounds through both eras.
   revision-100 game with one exact Rail action, final standings, and WCAG A/AA
   scans at representative states. CI installs pinned Chromium and uploads the
   report on every run.
+- A two-step reset warning that snapshots the current game ID, revision,
+  player count, seed, requested settings, and local-save context. Confirmation
+  is one-shot; changed or malformed context fails closed, and cancel never
+  replaces the current game.
 - Correct no-board-presence exceptions for a player's first Industry-card Build
   and first Network link.
 
@@ -184,7 +188,7 @@ turn order, final standings, revision-100 autosave/reload, and zero axe WCAG
 A/AA violations at hidden, revealed, restored, and terminal checkpoints.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
-clean. The verified checkpoint has 48 test files / 626 tests plus the production
+clean. The verified checkpoint has 49 test files / 634 tests plus the production
 build. Start it with:
 
 ```bash
@@ -195,8 +199,8 @@ Then open <http://localhost:3000/dev>.
 
 ## Next checkpoints
 
-1. Add revision-aware focus management and wire the prepared two-step reset
-   confirmation into the hot-seat screen.
+1. Add revision-aware focus management for reveal, accepted commands, round
+   settlement, era transition, and final standings.
 2. Extend browser coverage across 3- and 4-player reset/handoff paths and the
    progressive two-link Rail and liquidation branches.
 3. Run the final fresh-install gate: generated-data checks, lint, typecheck,
