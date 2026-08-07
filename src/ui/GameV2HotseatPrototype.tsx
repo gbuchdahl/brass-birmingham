@@ -8,10 +8,12 @@ type GameV2HotseatPrototypeProps = {
   readonly onSelectCard: (cardId: PlayableCardId) => void;
   readonly onToggleScoutCard: (cardId: PlayableCardId) => void;
   readonly onSelectNetworkLink: (linkId: string) => void;
+  readonly onSelectBuildPlan: (planId: string) => void;
   readonly onPass: () => void;
   readonly onLoan: () => void;
   readonly onScout: () => void;
   readonly onNetwork: () => void;
+  readonly onBuild: () => void;
   readonly onSettleRound: () => void;
   readonly onResolveEra: () => void;
 };
@@ -36,10 +38,12 @@ export function GameV2HotseatPrototype({
   onSelectCard,
   onToggleScoutCard,
   onSelectNetworkLink,
+  onSelectBuildPlan,
   onPass,
   onLoan,
   onScout,
   onNetwork,
+  onBuild,
   onSettleRound,
   onResolveEra,
 }: GameV2HotseatPrototypeProps) {
@@ -57,7 +61,7 @@ export function GameV2HotseatPrototype({
                 HOT-SEAT ALPHA
               </span>
               <span className="rounded border border-slate-400 px-2 py-1 text-xs font-bold tracking-wide">
-                PASS + LOAN + SCOUT + CANAL NETWORK
+                BUILD + PASS + LOAN + SCOUT + CANAL NETWORK
               </span>
             </div>
             <h1 className="text-2xl font-bold">Brass: Birmingham playable prototype</h1>
@@ -195,7 +199,7 @@ export function GameV2HotseatPrototype({
                 <Emoji>🃏</Emoji> {model.private.seat}&apos;s private hand
               </h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-neutral-300">
-                Choose one action card for Pass, Loan, or Canal Network; or toggle exactly three regular cards to Scout.
+                Choose one action card for Build, Pass, Loan, or Canal Network; or toggle exactly three regular cards to Scout.
               </p>
             </div>
             <button className={secondaryButton} onClick={onHide} type="button">
@@ -250,6 +254,53 @@ export function GameV2HotseatPrototype({
                 );
               })}
             </div>
+          </fieldset>
+
+          <fieldset className={`${inset} mt-4`}>
+            <legend className="px-1 text-sm font-bold">
+              <Emoji>🏗️</Emoji> Build industry
+            </legend>
+            {model.private.legal.build.availability === "exact" ? (
+              <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                <label className="grid gap-1 text-sm font-semibold">
+                  Exact Build plan
+                  <select
+                    aria-label="Build plan"
+                    className="rounded border border-slate-400 bg-white px-3 py-2 font-normal text-slate-950 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                    onChange={(event) => onSelectBuildPlan(event.target.value)}
+                    value={model.private.selectedBuildPlanId ?? ""}
+                  >
+                    <option value="">Choose a legal target and resource plan…</option>
+                    {model.private.legal.build.plans.map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.industryEmoji} {plan.locationLabel} {plan.buildSpaceLabel} · {plan.industryLabel} level {plan.tileLevel} · {plan.sourceSummary} · £{plan.totalCost}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className={primaryButton}
+                  disabled={!model.private.legal.build.selectionIsLegal}
+                  onClick={onBuild}
+                  type="button"
+                >
+                  <Emoji>🏗️</Emoji> Build selected industry
+                </button>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm">
+                <strong>Build unavailable:</strong>{" "}
+                {model.private.legal.build.reason?.message ??
+                  "No exact Build choices are available."}
+              </p>
+            )}
+            {model.private.legal.build.availability === "exact" ? (
+              <p aria-live="polite" className="mt-2 text-xs text-slate-600 dark:text-neutral-300">
+                {model.private.selectedBuildPlanId === null
+                  ? "Choose one complete target and resource-source plan."
+                  : "Build selection ready. The authoritative engine will recheck it."}
+              </p>
+            ) : null}
           </fieldset>
 
           <fieldset className={`${inset} mt-4`}>
@@ -386,6 +437,26 @@ export function GameV2HotseatPrototype({
           <p className="mt-3 text-sm text-slate-600 dark:text-neutral-300">
             Draw {game.cards.drawCount} · discard {game.cards.discardCount} · wild location {game.cards.wildLocationCount} · wild industry {game.cards.wildIndustryCount}
           </p>
+          {model.placedIndustries.length > 0 ? (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2" aria-label="Built industries">
+              {model.placedIndustries.map((industry) => (
+                <article className={inset} key={industry.buildSpaceId}>
+                  <h3 className="font-semibold">
+                    <span aria-hidden="true">{industry.industryEmoji}</span>{" "}
+                    {industry.locationLabel} · {industry.industryLabel} level {industry.tileLevel}
+                  </h3>
+                  <p className="mt-1 text-xs">
+                    {industry.owner} · {industry.resourceSummary}
+                    {industry.flipped ? " · flipped" : " · active"}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 text-xs text-slate-500 dark:text-neutral-400">
+              No industries have been built yet.
+            </p>
+          )}
         </section>
 
         <section className={panel}>

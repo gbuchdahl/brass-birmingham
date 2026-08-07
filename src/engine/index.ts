@@ -272,6 +272,17 @@ export {
   type GameV2SystemCommandOptions,
 } from "./game-v2/legal";
 export {
+  getGameV2BuildLegalOptions,
+  type GameV2BuildBoardResourceSource,
+  type GameV2BuildLegalDisabledReason,
+  type GameV2BuildLegalDisabledReasonCode,
+  type GameV2BuildLegalOptions,
+  type GameV2BuildMarketResourceSource,
+  type GameV2BuildResourcePlan,
+  type GameV2BuildResourceSource,
+  type GameV2BuildTarget,
+} from "./game-v2/build-legal";
+export {
   applyAcceptedActionV2,
   resolveCompletedRoundV2,
   type AcceptedActionEffectV2,

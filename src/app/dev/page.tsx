@@ -24,8 +24,11 @@ import {
   toHotseatViewModel,
 } from "@/ui/hotseat-session";
 import {
+  normalizeHotseatBuildDraft,
   selectHotseatActionCard,
+  selectHotseatBuildPlan,
   selectHotseatNetworkLink,
+  selectedHotseatBuildCommand,
   selectedHotseatCardId,
   selectedHotseatNetworkCommand,
   toggleHotseatScoutCard,
@@ -156,9 +159,20 @@ export default function DevPage() {
         card === undefined ||
         (!card.canPass && !card.canLoan && !card.canNetwork)
       ) return current;
-      return setHotseatDraft(
+      const withCard = setHotseatDraft(
         current,
         selectHotseatActionCard(current.draft, cardId),
+      );
+      const nextPrivate = toHotseatPrototypeModel(
+        toHotseatViewModel(withCard),
+        withCard.state,
+      ).private;
+      return setHotseatDraft(
+        withCard,
+        normalizeHotseatBuildDraft(
+          withCard.draft,
+          nextPrivate?.legal.build.plans.map((plan) => plan.id) ?? [],
+        ),
       );
     });
   }
@@ -259,6 +273,38 @@ export default function DevPage() {
     });
   }
 
+  function selectBuildPlan(planId: string): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (privateModel === null) return current;
+      return setHotseatDraft(
+        current,
+        selectHotseatBuildPlan(
+          current.draft,
+          planId,
+          privateModel.legal.build.plans.map((plan) => plan.id),
+        ),
+      );
+    });
+  }
+
+  function submitBuild(): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (privateModel === null) return current;
+      const command = selectedHotseatBuildCommand(privateModel);
+      return command === null
+        ? current
+        : submitHotseatCommand(current, command);
+    });
+  }
+
   return (
     <main className="min-h-screen bg-slate-100 px-3 py-4 text-slate-950 dark:bg-neutral-900 dark:text-neutral-100 sm:px-5 lg:px-8">
       <div className="mx-auto max-w-[1800px] space-y-4">
@@ -326,6 +372,7 @@ export default function DevPage() {
 
         <GameV2HotseatPrototype
           model={model}
+          onBuild={submitBuild}
           onHide={() => setSession(hideHotseatHand)}
           onLoan={() => submitCardAction("LOAN")}
           onNetwork={submitNetwork}
@@ -337,6 +384,7 @@ export default function DevPage() {
           }
           onReveal={() => setSession(revealHotseatHand)}
           onScout={submitScout}
+          onSelectBuildPlan={selectBuildPlan}
           onSelectCard={selectCard}
           onSelectNetworkLink={selectNetworkLink}
           onSettleRound={() =>

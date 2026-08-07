@@ -7,10 +7,17 @@ import {
   getGameV2LegalOptions,
   type GameV2LegalityDisabledReason,
 } from "@/engine/game-v2/legal";
+import {
+  getGameV2BuildLegalOptions,
+  type GameV2BuildLegalDisabledReason,
+  type GameV2BuildResourceSource,
+} from "@/engine/game-v2/build-legal";
 import type { GameStateV2 } from "@/engine/game-v2/state";
 import { incomeLevelAt } from "@/engine/economy/income";
 import type { LiquidationChoicesV2 } from "@/engine/game-v2/turn-lifecycle";
 import { CARD_CATALOG } from "@/engine/rules/generated/cards";
+import { BOARD_V2 } from "@/engine/rules/generated/board-v2";
+import { INDUSTRY_TILE_BY_ID } from "@/engine/rules/generated/industry-tiles-v2";
 import { SETUP_DATA } from "@/engine/rules/generated/ruleset";
 import type {
   HotseatDraft,
@@ -28,11 +35,45 @@ export type HotseatNetworkCommand = Extract<
   { readonly type: "NETWORK" }
 >;
 
+export type HotseatBuildCommand = Extract<
+  GameV2PlayerCommand,
+  { readonly type: "BUILD" }
+>;
+
 export type HotseatPrototypeNetworkLink = {
   readonly linkId: string;
   readonly endpointLabel: string;
   readonly cost: number;
   readonly selection: Omit<HotseatNetworkCommand["selection"], "cardId">;
+};
+
+export type HotseatPrototypeBuildPlan = {
+  /** Stable structural ID, independent of display order. */
+  readonly id: string;
+  readonly buildSpaceId: string;
+  readonly buildSpaceLabel: string;
+  readonly locationLabel: string;
+  readonly industry: string;
+  readonly industryLabel: string;
+  readonly industryEmoji: string;
+  readonly tileId: string;
+  readonly tileLevel: number;
+  readonly sourceSummary: string;
+  readonly totalCost: number;
+  readonly moneyChange: number;
+  readonly selection: HotseatBuildCommand["selection"];
+};
+
+export type HotseatPrototypePlacedIndustry = {
+  readonly buildSpaceId: string;
+  readonly locationLabel: string;
+  readonly owner: string;
+  readonly industryLabel: string;
+  readonly industryEmoji: string;
+  readonly tileId: string;
+  readonly tileLevel: number;
+  readonly resourceSummary: string;
+  readonly flipped: boolean;
 };
 
 export type HotseatPrototypePrivateModel = {
@@ -48,6 +89,7 @@ export type HotseatPrototypePrivateModel = {
   readonly selectedCardId: PlayableCardId | null;
   readonly selectedScoutCardIds: readonly PlayableCardId[];
   readonly selectedNetworkLinkId: string | null;
+  readonly selectedBuildPlanId: string | null;
   readonly legal: {
     readonly pass: {
       readonly selectedIsLegal: boolean;
@@ -67,6 +109,12 @@ export type HotseatPrototypePrivateModel = {
       readonly selectionIsLegal: boolean;
       readonly links: readonly HotseatPrototypeNetworkLink[];
       readonly reason: GameV2LegalityDisabledReason | null;
+    };
+    readonly build: {
+      readonly availability: "exact" | "disabled";
+      readonly selectionIsLegal: boolean;
+      readonly plans: readonly HotseatPrototypeBuildPlan[];
+      readonly reason: GameV2BuildLegalDisabledReason | null;
     };
   };
 };
@@ -108,6 +156,7 @@ export type HotseatPrototypeModel = {
   readonly public: HotseatPublicModel;
   readonly handoff: { readonly nextSeat: string } | null;
   readonly private: HotseatPrototypePrivateModel | null;
+  readonly placedIndustries: readonly HotseatPrototypePlacedIndustry[];
   readonly boundary: HotseatPrototypeBoundary | null;
   readonly feedback: HotseatPrototypeFeedback | null;
 };
@@ -213,6 +262,130 @@ export function selectedHotseatNetworkCommand(
     type: "NETWORK",
     selection: { ...link.selection, cardId },
   };
+}
+
+export function selectedHotseatBuildPlanId(
+  draft: HotseatDraft | null,
+): string | null {
+  const planId = draft?.fields.buildPlanId;
+  return typeof planId === "string" && planId.length > 0 ? planId : null;
+}
+
+export function hotseatBuildPlanId(
+  selection: HotseatBuildCommand["selection"],
+): string {
+  return JSON.stringify({
+    cardId: selection.cardId,
+    buildSpaceId: selection.buildSpaceId,
+    industry: selection.industry,
+    coalSources: selection.coalSources,
+    ironSources: selection.ironSources,
+  });
+}
+
+export function normalizeHotseatBuildPlanId(
+  planId: string | null,
+  selectablePlanIds: readonly string[],
+): string | null {
+  return planId !== null && selectablePlanIds.includes(planId) ? planId : null;
+}
+
+/**
+ * Removes an invalid persisted plan while retaining it across unrelated UI
+ * controls whenever it is still one of the exact selector choices.
+ */
+export function normalizeHotseatBuildDraft(
+  draft: HotseatDraft | null,
+  selectablePlanIds: readonly string[],
+): HotseatDraft | null {
+  if (draft === null) return null;
+  const normalized = normalizeHotseatBuildPlanId(
+    selectedHotseatBuildPlanId(draft),
+    selectablePlanIds,
+  );
+  const fields = { ...draft.fields };
+  if (normalized === null) {
+    delete fields.buildPlanId;
+  } else {
+    fields.buildPlanId = normalized;
+  }
+  return { ...draft, fields };
+}
+
+export function selectHotseatBuildPlan(
+  draft: HotseatDraft | null,
+  planId: string,
+  selectablePlanIds: readonly string[],
+): HotseatDraft {
+  const normalized = normalizeHotseatBuildPlanId(planId, selectablePlanIds);
+  const fields = { ...draft?.fields };
+  if (normalized === null) {
+    delete fields.buildPlanId;
+  } else {
+    fields.buildPlanId = normalized;
+  }
+  return { commandType: "BUILD", fields };
+}
+
+export function selectedHotseatBuildCommand(
+  privateModel: HotseatPrototypePrivateModel,
+): HotseatBuildCommand | null {
+  if (!privateModel.legal.build.selectionIsLegal) return null;
+  const plan = privateModel.legal.build.plans.find(
+    (candidate) => candidate.id === privateModel.selectedBuildPlanId,
+  );
+  return plan === undefined ? null : { type: "BUILD", selection: plan.selection };
+}
+
+const INDUSTRY_PRESENTATION: Readonly<Record<
+  string,
+  { readonly label: string; readonly emoji: string }
+>> = {
+  brewery: { label: "Brewery", emoji: "🍺" },
+  coal: { label: "Coal mine", emoji: "⛏️" },
+  cotton: { label: "Cotton mill", emoji: "🧶" },
+  iron: { label: "Iron works", emoji: "⚙️" },
+  manufacturer: { label: "Manufacturer", emoji: "🏭" },
+  pottery: { label: "Pottery", emoji: "🏺" },
+};
+
+function industryPresentation(industry: string): {
+  readonly label: string;
+  readonly emoji: string;
+} {
+  return INDUSTRY_PRESENTATION[industry] ?? {
+    label: humanizeCardTemplate(industry),
+    emoji: "🏭",
+  };
+}
+
+function hotseatBuildSourceSummary(
+  sources: readonly GameV2BuildResourceSource[],
+): string {
+  if (sources.length === 0) return "No coal or iron required";
+  return sources.map((source) => {
+    const resource = source.resource === "coal" ? "Coal" : "Iron";
+    const emoji = source.resource === "coal" ? "⛏️" : "⚙️";
+    return source.kind === "market"
+      ? `${emoji} ${resource} market (£${source.unitPrice})`
+      : `${emoji} ${resource} from ${source.locationLabel} (${source.owner})`;
+  }).join(" · ");
+}
+
+function hotseatBuildSpaceLabel(buildSpaceId: string): string {
+  const suffix = /_([0-9]+)$/.exec(buildSpaceId)?.[1];
+  return suffix === undefined ? buildSpaceId : `space ${suffix}`;
+}
+
+function hotseatPlacedResourceSummary(
+  resources: { readonly coal: number; readonly iron: number; readonly beer: number },
+): string {
+  const parts = [
+    resources.coal > 0 ? `⛏️ ${resources.coal} coal` : null,
+    resources.iron > 0 ? `⚙️ ${resources.iron} iron` : null,
+    resources.beer > 0 ? `🍺 ${resources.beer} beer` : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length === 0 ? "No resources" : parts.join(" · ");
 }
 
 /**
@@ -409,6 +582,34 @@ export function toHotseatPrototypeModel(
         );
         const selectedNetworkCardIsLegal = selectedCardId !== null &&
           options.network.selectableCardIds.includes(selectedCardId);
+        const buildOptions = getGameV2BuildLegalOptions(
+          state,
+          privateView.seat,
+          selectedCardId,
+        );
+        const buildPlans: HotseatPrototypeBuildPlan[] =
+          buildOptions.targets.flatMap((target) => {
+            const presentation = industryPresentation(target.industry);
+            return target.resourcePlans.map((plan) => ({
+              id: hotseatBuildPlanId(plan.selection),
+              buildSpaceId: target.buildSpaceId,
+              buildSpaceLabel: hotseatBuildSpaceLabel(target.buildSpaceId),
+              locationLabel: target.locationLabel,
+              industry: target.industry,
+              industryLabel: presentation.label,
+              industryEmoji: presentation.emoji,
+              tileId: target.tile.id,
+              tileLevel: target.tile.level,
+              sourceSummary: hotseatBuildSourceSummary(plan.sources),
+              totalCost: plan.totalCost,
+              moneyChange: plan.moneyChange,
+              selection: plan.selection,
+            }));
+          });
+        const selectedBuildPlanId = normalizeHotseatBuildPlanId(
+          selectedHotseatBuildPlanId(privateView.draft),
+          buildPlans.map((plan) => plan.id),
+        );
 
         return {
           seat: privateView.seat,
@@ -424,6 +625,7 @@ export function toHotseatPrototypeModel(
           selectedCardId,
           selectedScoutCardIds: scoutCardIds,
           selectedNetworkLinkId,
+          selectedBuildPlanId,
           legal: {
             pass: {
               selectedIsLegal: selectedCardId !== null &&
@@ -451,9 +653,38 @@ export function toHotseatPrototypeModel(
               links: networkLinks,
               reason: options.network.reason,
             },
+            build: {
+              availability: buildOptions.availability,
+              selectionIsLegal: buildOptions.availability === "exact" &&
+                selectedBuildPlanId !== null,
+              plans: buildPlans,
+              reason: buildOptions.reason,
+            },
           },
         };
       })();
+
+  const placedIndustries: HotseatPrototypePlacedIndustry[] =
+    view.public.board.placedIndustries.map((placement) => {
+      const tile = INDUSTRY_TILE_BY_ID[
+        placement.tileId as keyof typeof INDUSTRY_TILE_BY_ID
+      ];
+      const presentation = industryPresentation(tile?.industry ?? "industry");
+      const location = BOARD_V2.locations[
+        placement.locationId as keyof typeof BOARD_V2.locations
+      ];
+      return {
+        buildSpaceId: placement.spaceId,
+        locationLabel: location?.label ?? placement.locationId,
+        owner: placement.owner,
+        industryLabel: presentation.label,
+        industryEmoji: presentation.emoji,
+        tileId: placement.tileId,
+        tileLevel: tile?.level ?? 0,
+        resourceSummary: hotseatPlacedResourceSummary(placement.resources),
+        flipped: placement.flipped,
+      };
+    });
 
   return {
     public: view.public,
@@ -463,6 +694,7 @@ export function toHotseatPrototypeModel(
       ? { nextSeat: view.visibility.nextSeat }
       : null,
     private: privateModel,
+    placedIndustries,
     boundary: boundaryFor(view.public),
     feedback,
   };

@@ -4,6 +4,7 @@ import { highestSpaceForIncomeLevel } from "@/engine/economy/income";
 import { createGameV2, type GameStateV2 } from "@/engine/game-v2/state";
 import {
   createHotseatSession,
+  hideHotseatHand,
   revealHotseatHand,
   setHotseatDraft,
   submitHotseatCommand,
@@ -13,18 +14,40 @@ import {
   automaticHotseatLiquidationChoices,
   hotseatCardDraft,
   hotseatCardLabel,
+  hotseatBuildPlanId,
   legalHotseatScoutTriple,
   normalizeHotseatNetworkLinkId,
+  normalizeHotseatBuildDraft,
   normalizeHotseatScoutSelection,
   selectHotseatActionCard,
+  selectHotseatBuildPlan,
   selectHotseatNetworkLink,
   selectedHotseatCardId,
+  selectedHotseatBuildCommand,
+  selectedHotseatBuildPlanId,
   selectedHotseatNetworkCommand,
   selectedHotseatNetworkLinkId,
   selectedHotseatScoutCardIds,
   toggleHotseatScoutCard,
   toHotseatPrototypeModel,
 } from "@/ui/hotseat-prototype-model";
+
+function firstExactBuild(state: GameStateV2) {
+  const revealed = revealHotseatHand(createHotseatSession(state));
+  for (const cardId of state.cards.hands[state.currentSeat]) {
+    const session = setHotseatDraft(
+      revealed,
+      selectHotseatActionCard(revealed.draft, cardId),
+    );
+    const model = toHotseatPrototypeModel(
+      toHotseatViewModel(session),
+      session.state,
+    );
+    const plan = model.private?.legal.build.plans[0];
+    if (plan !== undefined) return { session, model, plan, cardId };
+  }
+  throw new Error("Expected at least one exact initial Build plan");
+}
 
 describe("hot-seat prototype presentation model", () => {
   it("projects a privacy-safe handoff and a labeled revealed hand", () => {
@@ -84,6 +107,163 @@ describe("hot-seat prototype presentation model", () => {
       link.selection.beerSourceId === null
     )).toBe(true);
     expect(model.private?.cards.every((card) => card.canNetwork)).toBe(true);
+  });
+
+  it("keeps Build plans private and projects complete initial choices", () => {
+    const state = createGameV2(["alice", "bob"], "prototype-build-options");
+    const ready = firstExactBuild(state);
+    const build = ready.model.private?.legal.build;
+
+    expect(build).toMatchObject({
+      availability: "exact",
+      selectionIsLegal: false,
+      reason: null,
+    });
+    expect(build?.plans.length).toBeGreaterThan(0);
+    expect(ready.plan).toMatchObject({
+      id: hotseatBuildPlanId(ready.plan.selection),
+      buildSpaceLabel: expect.any(String),
+      locationLabel: expect.any(String),
+      industry: expect.any(String),
+      industryLabel: expect.any(String),
+      industryEmoji: expect.any(String),
+      tileLevel: expect.any(Number),
+      sourceSummary: expect.any(String),
+      totalCost: expect.any(Number),
+      selection: { cardId: ready.cardId },
+    });
+    expect(ready.plan.locationLabel.length).toBeGreaterThan(0);
+    expect(ready.plan.tileLevel).toBeGreaterThan(0);
+    expect(ready.plan.totalCost).toBeGreaterThanOrEqual(0);
+
+    const hidden = hideHotseatHand(ready.session);
+    const handoff = toHotseatPrototypeModel(
+      toHotseatViewModel(hidden),
+      hidden.state,
+    );
+    expect(handoff.private).toBeNull();
+    expect(JSON.stringify(handoff)).not.toContain(ready.plan.id);
+    expect(JSON.stringify(handoff)).not.toContain(ready.plan.buildSpaceId);
+  });
+
+  it("normalizes stale Build plans while preserving a canonical plan across other controls", () => {
+    const state = createGameV2(["alice", "bob"], "prototype-build-draft");
+    const ready = firstExactBuild(state);
+    const planIds = ready.model.private?.legal.build.plans.map((plan) => plan.id) ?? [];
+    const selected = selectHotseatBuildPlan(
+      ready.session.draft,
+      ready.plan.id,
+      planIds,
+    );
+    const scoutChanged = toggleHotseatScoutCard(
+      selected,
+      state.cards.hands.alice[1],
+      state.cards.hands.alice,
+    );
+    const networkChanged = selectHotseatNetworkLink(
+      scoutChanged,
+      "link-placeholder",
+      ["link-placeholder"],
+    );
+
+    expect(selectedHotseatBuildPlanId(selected)).toBe(ready.plan.id);
+    expect(selectedHotseatBuildPlanId(scoutChanged)).toBe(ready.plan.id);
+    expect(selectedHotseatBuildPlanId(networkChanged)).toBe(ready.plan.id);
+    expect(normalizeHotseatBuildDraft(networkChanged, planIds)?.fields)
+      .toMatchObject({ buildPlanId: ready.plan.id });
+    const stale = normalizeHotseatBuildDraft(networkChanged, []);
+    expect(selectedHotseatBuildPlanId(stale)).toBeNull();
+    expect(stale?.fields).not.toHaveProperty("buildPlanId");
+    expect(selectedHotseatBuildPlanId(
+      selectHotseatBuildPlan(selected, "stale-plan", planIds),
+    )).toBeNull();
+  });
+
+  it("submits an exact Build plan and projects its authoritative public industry", () => {
+    const state = createGameV2(["alice", "bob"], "prototype-build-success");
+    const ready = firstExactBuild(state);
+    const playerBefore = state.players.alice;
+    const selected = setHotseatDraft(
+      ready.session,
+      selectHotseatBuildPlan(
+        ready.session.draft,
+        ready.plan.id,
+        ready.model.private?.legal.build.plans.map((plan) => plan.id) ?? [],
+      ),
+    );
+    const selectedModel = toHotseatPrototypeModel(
+      toHotseatViewModel(selected),
+      selected.state,
+    );
+    const command = selectedModel.private === null
+      ? null
+      : selectedHotseatBuildCommand(selectedModel.private);
+    if (command === null) throw new Error("Expected a ready Build command");
+    const accepted = submitHotseatCommand(selected, command);
+    const handoff = toHotseatPrototypeModel(
+      toHotseatViewModel(accepted),
+      accepted.state,
+    );
+    const placement = accepted.state.board.placedIndustries[
+      ready.plan.buildSpaceId
+    ];
+
+    expect(accepted.state.revision).toBe(state.revision + 1);
+    expect(accepted.state.players.alice.money).toBe(
+      playerBefore.money + ready.plan.moneyChange,
+    );
+    expect(placement).toMatchObject({
+      owner: "alice",
+      tileId: ready.plan.tileId,
+      locationId: expect.any(String),
+    });
+    expect(accepted.state.cards.discard).toContain(ready.cardId);
+    expect(accepted.state.cards.hands.alice).not.toContain(ready.cardId);
+    expect(handoff.feedback).toMatchObject({
+      kind: "accepted",
+      message: expect.stringContaining("BUILD accepted"),
+    });
+    expect(handoff.handoff).toEqual({ nextSeat: "bob" });
+    expect(handoff.private).toBeNull();
+    expect(handoff.placedIndustries).toContainEqual(expect.objectContaining({
+      buildSpaceId: ready.plan.buildSpaceId,
+      locationLabel: ready.plan.locationLabel,
+      owner: "alice",
+      industryLabel: ready.plan.industryLabel,
+      industryEmoji: ready.plan.industryEmoji,
+      tileId: ready.plan.tileId,
+      tileLevel: ready.plan.tileLevel,
+      resourceSummary: expect.any(String),
+    }));
+  });
+
+  it("surfaces the selected card's exact no-target Build blocker", () => {
+    const base = createGameV2(["alice", "bob"], "prototype-build-blocker");
+    const state: GameStateV2 = {
+      ...base,
+      players: {
+        ...base.players,
+        alice: { ...base.players.alice, money: 0 },
+      },
+    };
+    const session = setHotseatDraft(
+      revealHotseatHand(createHotseatSession(state)),
+      selectHotseatActionCard(null, state.cards.hands.alice[0]),
+    );
+    const model = toHotseatPrototypeModel(
+      toHotseatViewModel(session),
+      session.state,
+    );
+
+    expect(model.private?.legal.build).toMatchObject({
+      availability: "disabled",
+      selectionIsLegal: false,
+      plans: [],
+      reason: {
+        code: "NO_LEGAL_BUILD",
+        message: "The selected card has no affordable legal Build target.",
+      },
+    });
   });
 
   it("normalizes a Network link draft against exact selector choices", () => {
