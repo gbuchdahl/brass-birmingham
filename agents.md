@@ -1,90 +1,115 @@
-A repository for building an online version of Brass Birmingham. 
+# Brass: Birmingham agent handoff
 
-# Project Directory Reference
+Last updated: 2026-08-07
 
-## Top-Level Layout
+This repository is an engine-first, local hot-seat implementation of Brass:
+Birmingham. The old M0–M4 skeleton notes that previously lived here are no
+longer accurate; use this file and `docs/PROGRESS.md` as the durable handoff.
+
+## Current branch and milestone
+
+- Active branch: `agent/engine-alpha`
+- Draft PR: <https://github.com/gbuchdahl/brass-birmingham/pull/2>
+- Milestone: deterministic, rules-complete 2–4-player local hot-seat play through
+  both eras and final scoring.
+- Explicitly out of scope: online multiplayer, authentication, matchmaking, AI
+  opponents, deployment, and fancy art.
+- Status: completion candidate. The implementation and browser scenarios are in
+  place; run the final fresh-install gate below before declaring the milestone
+  complete.
+
+## Start here
+
+1. Read `README.md` for setup and player-facing development instructions.
+2. Read `docs/PROGRESS.md` for implemented behavior, browser scenarios, current
+   counts, and any remaining checkpoint.
+3. Inspect the draft PR and recent commits before changing shared files.
+4. Preserve unrelated user work if the tree is dirty.
+
+## Current architecture
+
+- `src/engine/game-v2/`: authoritative composite game state, commands,
+  serialization, turn/round/era lifecycle, exact legal selectors, and replay.
+- `src/engine/actions-v2/` and `src/engine/actions/`: pure action kernels used by
+  immutable GameStateV2 adapters.
+- `src/engine/rules/generated/`: generated cards, board, tiles, income, merchants,
+  and ruleset data used at runtime.
+- `docs/rules-data/`: reviewable source data for generated rules artifacts.
+- `src/ui/`: pure hot-seat projections/controllers, local persistence, exact
+  progressive action models, and the intentionally plain React prototype.
+- `src/app/dev/`: the playable `/dev` route. The root route redirects here.
+- `src/tests/`: Vitest engine, UI, replay, and invariant coverage.
+- `e2e/`: production-server Playwright/axe journeys and public-command-built
+  serialized fixtures. Fixtures must not patch authoritative state directly.
+
+## Important contracts
+
+- Every accepted command advances revision exactly once; rejected commands
+  preserve exact authoritative state.
+- The command reducer and exact legal selectors are authoritative. UI controls
+  must submit selector-emitted plans, never reconstruct rule choices ad hoc.
+- Sell, Rail Network, and liquidation use bounded progressive prefixes. Local
+  drafts are revision/card-bound, fail closed, remain private where applicable,
+  and are excluded from autosave.
+- Handoff models must not mount or serialize another player's hand or private
+  follow-up choices.
+- Browser saves contain the replay origin, accepted command journal, collision-
+  safe command ordinal, and byte-verified head. Corrupt saves fail closed.
+- Keyboard focus follows authoritative revision and active mode; draft-only
+  clicks must retain their natural focus.
+- Reset is two-step and one-shot. Confirmation is tied to game ID, revision,
+  current/requested settings, and local-save context.
+
+## Verification
+
+Use the pinned toolchain through mise:
+
+```bash
+mise install
+mise exec -- pnpm install --frozen-lockfile
+mise exec -- pnpm check
+mise exec -- pnpm test:e2e
 ```
-/ (repo root)
-├── src/
-│   ├── app/
-│   │   ├── (site)/
-│   │   ├── dev/
-│   │   └── api/
-│   ├── engine/
-│   │   ├── board/
-│   │   ├── cards/
-│   │   ├── rules/
-│   │   ├── state/
-│   │   └── util/
-│   ├── ui/
-│   ├── lib/
-│   ├── server/
-│   └── tests/
-├── public/
-├── styles/
-├── package.json
-└── tsconfig.json
-```
 
-## Directory Notes
-- `src/app`: Next.js App Router entry point. `(site)` contains public pages, `dev` hosts the sandbox page, and `api` holds future server routes (`games/[id]/actions`).
-- `src/engine`: Pure rules engine. Key subpackages:
-  - `board/`: static graphs for city/link topology.
-  - `cards/`: deck + hand utilities, deterministic RNG usage, and card rules stubs.
-  - `rules/`: game rule modules (`setup`, `build`, `sell`, `scoring`, `config`).
-  - `state/`: constructors like `createGame` (seeded, deterministic).
-  - `util/`: shared pure helpers (`rng`, upcoming math helpers, etc.).
-- `src/ui`: Presentational React components (Board, Hand, Log) consuming projected state.
-- `src/lib`: Shared helpers (IDs, invariants, future schemas) reusable across layers.
-- `src/server`: Server-only helpers (store, bus, lock) for API routes.
-- `src/tests`: Vitest suites—`engine/` for reducers, `properties/` for invariants/property tests.
-- `public`: Static assets served by Next.js.
-- `styles`: Global styling assets (Tailwind config) referenced by the app shell.
-- `package.json` & `tsconfig.json`: Toolchain configuration anchoring Next.js, TypeScript, lint/test scripts.
+`pnpm check` covers generated-data freshness, ESLint, TypeScript, Vitest, and a
+production Next.js build. `pnpm test:e2e` separately builds/serves production
+and runs Playwright/axe. At this handoff, the expected local results are 49
+Vitest files / 634 tests and 9 Playwright tests. Confirm the exact current counts
+rather than copying them forward after new work.
 
-Use this guide when navigating or extending the codebase so each agent understands where their responsibilities live.
+CI runs frozen install, verification, Chromium installation, the production
+browser gate, and uploads the Playwright report.
 
-# Agent: Milestone Tracker (Current State)
+## Rules data workflow
 
-## Completed
+1. Edit the appropriate source under `docs/rules-data/`.
+2. Run `pnpm rules:generate`.
+3. Review the generated TypeScript diff under `src/engine/rules/generated/`.
+4. Run `pnpm check`.
 
-1. **M0 Skeleton**
-   - Reducer scaffold with explicit constructors (`reduce` is pure no-op for unknown actions).
-   - Dev sandbox (`/dev`) hydrates seed game and dispatches actions.
-2. **M1 Turn Skeleton**
-   - `createGame(seats, seed)` seeds deterministic state, seat order, turn counter, event log.
-   - `END_TURN` cycles `currentPlayer`, appends log entries, ignores out-of-turn requests.
-3. **M2 Board & Cards (minimal)**
-   - Deterministic RNG (`mulberry32`) and `shuffleInPlace` helper.
-   - Micro board graph (`Birmingham`, `Coventry`) and adjacency map.
-   - Minimal deck & hand dealing; players receive hands on game creation.
-4. **M3 Link Building Engine**
-   - Added `BUILD_LINK` action to reducer with era derivation from phase.
-   - Reducer enforces turn/era/link legality and uses silent no-op on illegal actions by design.
-   - Added legal move enumeration via `getLegalMoves` for active-player link builds.
-5. **M4 Typed Reducer Outcomes**
-   - `reduce` now returns typed results with explicit error codes for invalid actions.
-   - Invalid action outcomes include reason metadata (`NOT_CURRENT_PLAYER`, `ILLEGAL_LINK_FOR_PHASE`).
-   - Invalid actions append `INVALID_ACTION` log events with code/message/action/context.
-   - Tests assert validation outcomes and invalid-action log payloads directly.
+Runtime engine code imports generated TypeScript, not YAML directly.
 
-## Testing Status
+## Useful rule/UI checkpoints
 
-- `pnpm vitest run` (passes): reducer tests cover `END_TURN` and `BUILD_LINK` success/no-op paths; board and legal-move suites pass.
-- Property tests placeholder (`src/tests/properties/invariants.test.ts`) still skipped.
+- A new level-1 Iron Works produces 4 cubes. With the initial iron market at
+  8/10, only 2 cubes sell for £2; 2 remain on the tile, so it does not flip and
+  income does not advance yet. The public Build receipt explains this explicitly.
+- Public liquidation exposes only owned positive-value assets, updates shortfall
+  after each click, and cannot submit until the authoritative selector is ready.
+- A one-link Rail plan can submit immediately or be promoted to inspect only
+  exact ordered two-link extensions, including sequential coal and required own
+  beer.
+- Gloucester's Merchant reward persists as a private free-Develop follow-up and
+  completes its parent Sell exactly once after resolution.
 
-## Notes for Agents
+## Non-blocking follow-ups after milestone completion
 
-- Read `README.md` before making code changes.
-- Deterministic seed defaults to `"dev-seed"` outside production for hydration stability.
-- Card IDs (`c0..`) generated in deck builder; log events capture hands dealt (hand size only).
-- UI sandbox uses `createGame(['A','B','C','D'])`; adjust seats array to mimic real player counts.
-- Any future module split should follow the cards migration precedent: types-only files, barrel exports, and pure helpers.
-- Keep reducers pure and exhaustively switch over `Action` unions—TypeScript will enforce via `never` guard.
-- For Brass: Birmingham rules questions, always consult RulesPal first: https://www.rulespal.com/brass-birmingham/rulebook
-- Remaining debt: decide whether invalid actions should be surfaced in a dedicated UI/errors channel in addition to engine logs.
-- Rules data workflow:
-  - Source-of-truth editable files live in `docs/rules-data/` (`industry-values.yaml`, `board-topology.yaml`).
-  - Generated runtime artifacts live in `src/engine/rules/generated/industry-values.ts` and `src/engine/board/generated/topology.ts`.
-  - After editing YAML, run `pnpm rules:generate` before tests.
-  - Runtime engine code should import generated TS artifacts, not YAML directly.
+- Deeper full-round browser journeys for 3 and 4 players; complete engine/replay
+  journeys already cover both counts.
+- Broader axe scans on every progressive branch.
+- Stronger property/fuzz testing.
+- Retire the legacy generic `attemptable` Network status and placeholder V1
+  industry-value data once no compatibility consumer needs them.
+
+Do not resurrect the legacy reducer skeleton, silent illegal-action behavior,
+card-rule stubs, or skipped-property-test claims that this file used to describe.

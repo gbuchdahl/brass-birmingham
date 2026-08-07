@@ -111,6 +111,10 @@ deterministic rounds through both eras.
   player count, seed, requested settings, and local-save context. Confirmation
   is one-shot; changed or malformed context fails closed, and cancel never
   replaces the current game.
+- A current `agents.md` handoff covering the real GameStateV2 architecture,
+  branch/PR, exact selector and privacy contracts, rules-data workflow,
+  verification commands/counts, important rule checkpoints, and only genuine
+  non-blocking follow-ups. The obsolete M0–M4 skeleton notes are retired.
 - Correct no-board-presence exceptions for a player's first Industry-card Build
   and first Network link.
 
@@ -246,9 +250,7 @@ Then open <http://localhost:3000/dev>.
 
 ## Next checkpoints
 
-1. Replace the stale legacy milestone notes in `agents.md` with the current
-   architecture, verification, branch, and handoff guidance.
-2. Run the final fresh-install gate: frozen dependency install, generated-data
+1. Run the final fresh-install gate: frozen dependency install, generated-data
    checks, lint, typecheck, unit tests, production build, and browser/
    accessibility coverage.
 

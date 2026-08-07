@@ -3,6 +3,7 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 Development is currently focused on the deterministic rules engine. See
 [the development progress document](docs/PROGRESS.md) for the active branch,
 pushed checkpoints, local work in progress, and the next planned milestones.
+New coding agents should also read [the repository handoff](agents.md).
 
 ## Getting Started
 
