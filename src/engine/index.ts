@@ -307,6 +307,18 @@ export {
   type GameV2SellProjectedSale,
 } from "./game-v2/sell-legal";
 export {
+  getGameV2RailNetworkLegalOptions,
+  type GameV2RailBeerSummary,
+  type GameV2RailCoalSummary,
+  type GameV2RailLinkSummary,
+  type GameV2RailMarketCoalSummary,
+  type GameV2RailMineCoalSummary,
+  type GameV2RailNetworkDisabledReason,
+  type GameV2RailNetworkDisabledReasonCode,
+  type GameV2RailNetworkLegalOptions,
+  type GameV2RailNetworkPlan,
+} from "./game-v2/rail-network-legal";
+export {
   getGameV2LiquidationLegalOptions,
   type GameV2LiquidationAsset,
   type GameV2LiquidationAuthorityPreview,

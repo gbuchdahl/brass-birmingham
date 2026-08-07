@@ -55,19 +55,21 @@ boundaries required to play deterministic rounds through both eras.
   Invalid saves fail closed and require explicit user-confirmed replacement.
 - Fail-closed progressive legal selectors. Pass, Loan, Scout, Canal Network,
   Merchant free Develop, card-specific industry Build, and card-specific
-  Develop plans are exact. Sell is exact through a bounded progressive selector
-  whose every accepted prefix can stop as a complete action or append one exact
-  next sale. Round liquidation is also exact and progressive, exposing only the
-  next owned positive-value asset for each negative-income seat until cash,
-  liquidation proceeds, or exhausted assets settle the shortfall. Build plans
-  include board space, top tile, overbuild, materially distinct coal/iron
-  sources, market cost, production outcome, and total cost. Develop plans
-  include ordered physical top tiles, exact board and market iron, price,
-  provider depletion, and resulting inventory. Sell choices include the
-  product, Merchant, mandatory beer source, reward, income, and any pending free
-  Develop. Every complete plan is accepted by the authoritative command reducer
-  or round-settlement authority. Rail Network, Sell, and liquidation remain
-  explicitly incomplete in the UI.
+  Develop plans are exact. Sell and Rail Network are exact through bounded
+  progressive selectors whose accepted prefixes can be submitted immediately
+  or extended by one exact next decision. Round liquidation is also exact and
+  progressive, exposing only the next owned positive-value asset for each
+  negative-income seat until cash, liquidation proceeds, or exhausted assets
+  settle the shortfall. Build plans include board space, top tile, overbuild,
+  materially distinct coal/iron sources, market cost, production outcome, and
+  total cost. Develop plans include ordered physical top tiles, exact board and
+  market iron, price, provider depletion, and resulting inventory. Sell choices
+  include the product, Merchant, mandatory beer source, reward, income, and any
+  pending free Develop. Rail plans include ordered links, exact coal sources,
+  sequential market prices, the optional second link's own beer, flips, and
+  income. Every complete plan is accepted by the authoritative command reducer
+  or round-settlement authority. Rail Network, Sell, and liquidation controls
+  remain explicitly incomplete in the UI.
 - Strict event/phase provenance validation for command receipts, round and era
   boundaries, Merchant follow-ups, Canal-to-Rail transition, and terminal Rail
   scoring.
@@ -112,6 +114,13 @@ next choices append one legal product/Merchant/beer combination. It preserves
 both material sale orders, deduplicates only byte-equivalent adapter outcomes,
 and projects Merchant rewards and pending Gloucester free Develop.
 
+Rail Network now has the same bounded exact contract. Its first layer exposes
+every reducer-ready one-link and coal-source plan. Passing one emitted plan back
+keeps it available for immediate submission while exposing only legal ordered
+second-link, second-coal, and own-beer extensions. The authoritative adapter
+still decides reach, nearest-coal priority, first-link-anywhere, sequential
+market prices, affordability, token use, flips, and income awards.
+
 Round settlement now has a bounded progressive liquidation contract. Missing
 negative-income seats remain unacknowledged, cash-covered seats explicitly
 choose `[]`, short seats append one owned positive-value industry at a time, and
@@ -128,7 +137,7 @@ link for £3; continue after reload without command-ID collisions; take a Loan;
 pay negative income from cash; settle into round 2; and reset to four players.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
-clean. The verified checkpoint has 46 test files / 599 tests plus the production
+clean. The verified checkpoint has 47 test files / 607 tests plus the production
 build. Start it with:
 
 ```bash
@@ -139,10 +148,10 @@ Then open <http://localhost:3000/dev>.
 
 ## Next checkpoints
 
-1. Add Sell and genuine asset-liquidation controls through exact progressive
-   legal-target selectors.
-2. Enumerate Rail Network coal/beer and optional two-link plans, then expose the
-   Rail control without weakening the already exact Canal selector.
+1. Add Sell and genuine asset-liquidation controls through their exact
+   progressive legal-target selectors.
+2. Expose the exact progressive Rail Network selector without weakening the
+   already exact Canal control.
 3. Run complete-game browser scenarios and the final fresh-install gate:
    generated-data checks, lint, typecheck, unit tests, production build, and
    accessibility smoke.
