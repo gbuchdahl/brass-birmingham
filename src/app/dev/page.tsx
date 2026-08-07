@@ -27,10 +27,12 @@ import {
   normalizeHotseatBuildDraft,
   selectHotseatActionCard,
   selectHotseatBuildPlan,
+  selectHotseatMerchantFreeDevelopSelection,
   selectHotseatNetworkLink,
   selectedHotseatBuildCommand,
   selectedHotseatCardId,
   selectedHotseatNetworkCommand,
+  selectedHotseatMerchantFreeDevelopCommand,
   toggleHotseatScoutCard,
   toHotseatPrototypeModel,
   type HotseatSimpleCardAction,
@@ -305,6 +307,39 @@ export default function DevPage() {
     });
   }
 
+  function selectMerchantFreeDevelop(selectionId: string): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      const followUp = privateModel?.merchantFreeDevelop;
+      if (followUp === null || followUp === undefined) return current;
+      return setHotseatDraft(
+        current,
+        selectHotseatMerchantFreeDevelopSelection(
+          current.draft,
+          selectionId,
+          followUp.selections.map((selection) => selection.id),
+        ),
+      );
+    });
+  }
+
+  function resolveMerchantFreeDevelop(): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (privateModel === null) return current;
+      const command = selectedHotseatMerchantFreeDevelopCommand(privateModel);
+      return command === null
+        ? current
+        : submitHotseatCommand(current, command);
+    });
+  }
+
   return (
     <main className="min-h-screen bg-slate-100 px-3 py-4 text-slate-950 dark:bg-neutral-900 dark:text-neutral-100 sm:px-5 lg:px-8">
       <div className="mx-auto max-w-[1800px] space-y-4">
@@ -382,9 +417,11 @@ export default function DevPage() {
               submitHotseatCommand(current, { type: "RESOLVE_ERA" })
             )
           }
+          onResolveMerchantFreeDevelop={resolveMerchantFreeDevelop}
           onReveal={() => setSession(revealHotseatHand)}
           onScout={submitScout}
           onSelectBuildPlan={selectBuildPlan}
+          onSelectMerchantFreeDevelop={selectMerchantFreeDevelop}
           onSelectCard={selectCard}
           onSelectNetworkLink={selectNetworkLink}
           onSettleRound={() =>

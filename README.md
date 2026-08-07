@@ -40,7 +40,8 @@ Scout, or Canal Network actions. Build choices include the exact board space,
 industry tile, resource sources, and total cost. Player count and seed changes
 take effect when you choose **New / reset game**. Progress is corruption-checked
 and autosaved in this browser; reload always returns to a privacy-safe handoff
-screen.
+screen. If play enters a Merchant free-Develop follow-up, its exact tile choice
+is also hidden behind the owning player's handoff and can be resolved in the UI.
 
 ## Rules Data Workflow
 

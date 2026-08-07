@@ -13,9 +13,9 @@ Last updated: 2026-08-06
 The project is currently **engine-first**, with a deliberately plain but
 interactive hot-seat prototype at `/dev`. It supports privacy-safe device
 handoff, exact industry Build plans, Pass, Loan, Scout, exact Canal Network link
-selection, automatic cash-covered income settlement, corruption-safe local
-recovery, and the system boundaries required to play deterministic rounds
-through both eras.
+selection, exact Merchant free-Develop follow-ups, automatic cash-covered
+income settlement, corruption-safe local recovery, and the system boundaries
+required to play deterministic rounds through both eras.
 
 ## Pushed and working
 
@@ -44,8 +44,9 @@ through both eras.
 - An interactive `GameStateV2` hot-seat prototype at `/dev` with deterministic
   2-4 player reset controls, pass-device privacy, current-hand reveal/hide,
   selector-backed industry Build, Pass, Loan, Scout, and Canal Network actions,
-  typed errors, round/era Continue controls, public state summaries, visible
-  built-industry boxes, recent event types, and final standings.
+  privacy-safe Merchant free-Develop resolution, typed errors, round/era
+  Continue controls, public state summaries, visible built-industry boxes,
+  recent event types, and final standings.
 - A pure hot-seat session controller with pass-device handoff/reveal privacy,
   public/private projections, deterministic command history, draft/error
   handling, and unit coverage.
@@ -57,7 +58,7 @@ through both eras.
   Build plans include board space, top tile, overbuild, materially distinct
   coal/iron sources, market cost, production outcome, and total cost; every
   emitted plan is accepted by the authoritative command reducer. Rail Network,
-  Develop, Sell, and liquidation remain explicitly incomplete.
+  Develop, Sell, and liquidation remain explicitly incomplete in the UI.
 - Strict event/phase provenance validation for command receipts, round and era
   boundaries, Merchant follow-ups, Canal-to-Rail transition, and terminal Rail
   scoring.
@@ -83,7 +84,11 @@ Useful entry points include:
 Every accepted command advances revision once, rejections preserve exact state
 identity, a real Gloucester Sell can serialize while pending and resume safely,
 and the hot-seat controller never exposes opponent card identities through its
-public or handoff models.
+public or handoff models. A pending Merchant free-Develop choice now returns to
+a handoff, reveals only to the affected player, accepts an exact top-tile choice
+(or the rules-required empty skip), and completes its parent Sell exactly once.
+It is not yet reachable through ordinary browser play because Sell controls are
+the next action slice.
 
 The browser-verified prototype can build a real level-1 Cannock coal mine for
 £5 and show its two coal cubes, Scout three regular cards for both Wilds, build
@@ -101,8 +106,8 @@ Then open <http://localhost:3000/dev>.
 
 ## Next checkpoints
 
-1. Add Develop, Sell, Merchant free Develop, and genuine asset-liquidation
-   controls through progressive legal-target selectors.
+1. Add Develop, Sell, and genuine asset-liquidation controls through exact or
+   progressive legal-target selectors.
 2. Enumerate Rail Network coal/beer and optional two-link plans, then expose the
    Rail control without weakening the already exact Canal selector.
 3. Run complete-game browser scenarios and the final fresh-install gate:

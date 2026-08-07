@@ -1,5 +1,6 @@
 import type { PlayableCardId } from "@/engine/cards-v2/types";
 import type {
+  GameV2Command,
   GameV2CommandOutcome,
   GameV2PlayerCommand,
 } from "@/engine/game-v2/commands";
@@ -40,6 +41,11 @@ export type HotseatBuildCommand = Extract<
   { readonly type: "BUILD" }
 >;
 
+export type HotseatMerchantFreeDevelopCommand = Extract<
+  GameV2Command,
+  { readonly type: "RESOLVE_MERCHANT_FREE_DEVELOP" }
+>;
+
 export type HotseatPrototypeNetworkLink = {
   readonly linkId: string;
   readonly endpointLabel: string;
@@ -76,7 +82,20 @@ export type HotseatPrototypePlacedIndustry = {
   readonly flipped: boolean;
 };
 
+export type HotseatPrototypeMerchantFreeDevelopSelection = {
+  readonly id: string;
+  readonly tileIds: readonly string[];
+  readonly tiles: readonly {
+    readonly id: string;
+    readonly industryLabel: string;
+    readonly industryEmoji: string;
+    readonly level: number;
+  }[];
+  readonly skippedCount: number;
+};
+
 export type HotseatPrototypePrivateModel = {
+  readonly mode: "action" | "merchant_free_develop";
   readonly seat: string;
   readonly cards: readonly {
     readonly id: PlayableCardId;
@@ -90,6 +109,14 @@ export type HotseatPrototypePrivateModel = {
   readonly selectedScoutCardIds: readonly PlayableCardId[];
   readonly selectedNetworkLinkId: string | null;
   readonly selectedBuildPlanId: string | null;
+  readonly merchantFreeDevelop: {
+    readonly availability: "exact" | "disabled";
+    readonly requiredCount: number;
+    readonly selections: readonly HotseatPrototypeMerchantFreeDevelopSelection[];
+    readonly selectedSelectionId: string | null;
+    readonly selectionIsLegal: boolean;
+    readonly reason: GameV2LegalityDisabledReason | null;
+  } | null;
   readonly legal: {
     readonly pass: {
       readonly selectedIsLegal: boolean;
@@ -337,6 +364,67 @@ export function selectedHotseatBuildCommand(
   return plan === undefined ? null : { type: "BUILD", selection: plan.selection };
 }
 
+export function hotseatMerchantFreeDevelopSelectionId(
+  tileIds: readonly string[],
+): string {
+  return JSON.stringify(tileIds);
+}
+
+export function selectedHotseatMerchantFreeDevelopSelectionId(
+  draft: HotseatDraft | null,
+): string | null {
+  const selectionId = draft?.fields.merchantFreeDevelopSelectionId;
+  return typeof selectionId === "string" && selectionId.length > 0
+    ? selectionId
+    : null;
+}
+
+export function normalizeHotseatMerchantFreeDevelopSelectionId(
+  selectionId: string | null,
+  legalSelectionIds: readonly string[],
+): string | null {
+  return selectionId !== null && legalSelectionIds.includes(selectionId)
+    ? selectionId
+    : null;
+}
+
+export function selectHotseatMerchantFreeDevelopSelection(
+  draft: HotseatDraft | null,
+  selectionId: string,
+  legalSelectionIds: readonly string[],
+): HotseatDraft {
+  const normalized = normalizeHotseatMerchantFreeDevelopSelectionId(
+    selectionId,
+    legalSelectionIds,
+  );
+  const fields = { ...draft?.fields };
+  if (normalized === null) {
+    delete fields.merchantFreeDevelopSelectionId;
+  } else {
+    fields.merchantFreeDevelopSelectionId = normalized;
+  }
+  return {
+    commandType: "RESOLVE_MERCHANT_FREE_DEVELOP",
+    fields,
+  };
+}
+
+export function selectedHotseatMerchantFreeDevelopCommand(
+  privateModel: HotseatPrototypePrivateModel,
+): HotseatMerchantFreeDevelopCommand | null {
+  const followUp = privateModel.merchantFreeDevelop;
+  if (followUp === null || !followUp.selectionIsLegal) return null;
+  const selection = followUp.selections.find(
+    (candidate) => candidate.id === followUp.selectedSelectionId,
+  );
+  return selection === undefined
+    ? null
+    : {
+        type: "RESOLVE_MERCHANT_FREE_DEVELOP",
+        selection: { tileIds: selection.tileIds },
+      };
+}
+
 const INDUSTRY_PRESENTATION: Readonly<Record<
   string,
   { readonly label: string; readonly emoji: string }
@@ -539,11 +627,16 @@ export function toHotseatPrototypeModel(
           message: view.lastResult.error.message,
         };
 
-  const privateView = view.public.progress.phase === "action" &&
+  const isPrivatePlayerPhase = view.public.progress.phase === "action" ||
+    view.public.progress.phase === "merchant_free_develop";
+  const expectedPrivateSeat = state.progress.phase === "merchant_free_develop"
+    ? state.progress.pending.seat
+    : state.currentSeat;
+  const privateView = isPrivatePlayerPhase &&
       view.private !== null &&
       view.public.identity.gameId === state.gameId &&
       view.public.identity.revision === state.revision &&
-      view.private.seat === state.currentSeat
+      view.private.seat === expectedPrivateSeat
     ? view.private
     : null;
   const privateModel = privateView === null
@@ -558,7 +651,9 @@ export function toHotseatPrototypeModel(
         const loan = options.playerActions.find((action) =>
           action.kind === "LOAN"
         );
-        const selectedCardCandidate = selectedHotseatCardId(privateView.draft);
+        const selectedCardCandidate = state.progress.phase === "action"
+          ? selectedHotseatCardId(privateView.draft)
+          : null;
         const selectedCardId = selectedCardCandidate !== null &&
             privateView.hand.includes(selectedCardCandidate)
           ? selectedCardCandidate
@@ -610,8 +705,33 @@ export function toHotseatPrototypeModel(
           selectedHotseatBuildPlanId(privateView.draft),
           buildPlans.map((plan) => plan.id),
         );
+        const merchantOptions = options.merchantFreeDevelop;
+        const merchantSelections: HotseatPrototypeMerchantFreeDevelopSelection[] =
+          merchantOptions.legalTileIdSelections.map((tileIds) => ({
+            id: hotseatMerchantFreeDevelopSelectionId(tileIds),
+            tileIds: [...tileIds],
+            tiles: tileIds.map((tileId) => {
+              const tile = INDUSTRY_TILE_BY_ID[tileId];
+              const presentation = industryPresentation(tile.industry);
+              return {
+                id: tileId,
+                industryLabel: presentation.label,
+                industryEmoji: presentation.emoji,
+                level: tile.level,
+              };
+            }),
+            skippedCount: merchantOptions.bonusCount - tileIds.length,
+          }));
+        const selectedMerchantSelectionId =
+          normalizeHotseatMerchantFreeDevelopSelectionId(
+            selectedHotseatMerchantFreeDevelopSelectionId(privateView.draft),
+            merchantSelections.map((selection) => selection.id),
+          );
 
         return {
+          mode: state.progress.phase === "merchant_free_develop"
+            ? "merchant_free_develop" as const
+            : "action" as const,
           seat: privateView.seat,
           cards: privateView.hand.map((id) => ({
             id,
@@ -626,6 +746,17 @@ export function toHotseatPrototypeModel(
           selectedScoutCardIds: scoutCardIds,
           selectedNetworkLinkId,
           selectedBuildPlanId,
+          merchantFreeDevelop: state.progress.phase === "merchant_free_develop"
+            ? {
+                availability: merchantOptions.availability,
+                requiredCount: merchantOptions.bonusCount,
+                selections: merchantSelections,
+                selectedSelectionId: selectedMerchantSelectionId,
+                selectionIsLegal: merchantOptions.availability === "exact" &&
+                  selectedMerchantSelectionId !== null,
+                reason: merchantOptions.reason,
+              }
+            : null,
           legal: {
             pass: {
               selectedIsLegal: selectedCardId !== null &&
@@ -688,7 +819,7 @@ export function toHotseatPrototypeModel(
 
   return {
     public: view.public,
-    handoff: view.public.progress.phase === "action" &&
+    handoff: isPrivatePlayerPhase &&
         view.visibility.kind === "handoff" &&
         view.visibility.nextSeat !== null
       ? { nextSeat: view.visibility.nextSeat }

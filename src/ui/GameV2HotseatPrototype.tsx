@@ -9,11 +9,13 @@ type GameV2HotseatPrototypeProps = {
   readonly onToggleScoutCard: (cardId: PlayableCardId) => void;
   readonly onSelectNetworkLink: (linkId: string) => void;
   readonly onSelectBuildPlan: (planId: string) => void;
+  readonly onSelectMerchantFreeDevelop: (selectionId: string) => void;
   readonly onPass: () => void;
   readonly onLoan: () => void;
   readonly onScout: () => void;
   readonly onNetwork: () => void;
   readonly onBuild: () => void;
+  readonly onResolveMerchantFreeDevelop: () => void;
   readonly onSettleRound: () => void;
   readonly onResolveEra: () => void;
 };
@@ -39,11 +41,13 @@ export function GameV2HotseatPrototype({
   onToggleScoutCard,
   onSelectNetworkLink,
   onSelectBuildPlan,
+  onSelectMerchantFreeDevelop,
   onPass,
   onLoan,
   onScout,
   onNetwork,
   onBuild,
+  onResolveMerchantFreeDevelop,
   onSettleRound,
   onResolveEra,
 }: GameV2HotseatPrototypeProps) {
@@ -125,10 +129,10 @@ export function GameV2HotseatPrototype({
             Pass the device to {model.handoff.nextSeat}
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600 dark:text-neutral-300">
-            No hand is visible. When everyone else is looking away, reveal the current hand.
+            No private hand, draft, or follow-up choices are visible. When everyone else is looking away, reveal the current player&apos;s view.
           </p>
           <button autoFocus className={`${primaryButton} mt-4`} onClick={onReveal} type="button">
-            <Emoji>👁️</Emoji> Reveal {model.handoff.nextSeat}&apos;s hand
+            <Emoji>👁️</Emoji> Reveal {model.handoff.nextSeat}&apos;s private view
           </button>
         </section>
       ) : null}
@@ -164,12 +168,13 @@ export function GameV2HotseatPrototype({
         </section>
       ) : null}
 
-      {model.boundary?.kind === "merchant_free_develop" ? (
+      {model.boundary?.kind === "merchant_free_develop" &&
+          model.handoff === null && model.private === null ? (
         <section className={panel}>
           <h2 className="text-xl font-bold"><Emoji>🛒</Emoji> Merchant free Develop pending</h2>
           <p className="mt-2 text-sm">
             {model.boundary.seat} must remove {model.boundary.count} industry tile(s).
-            The Sell and free-Develop controls are the next UI slice.
+            Pass the device to that player to resolve the pending Sell follow-up.
           </p>
         </section>
       ) : null}
@@ -191,7 +196,75 @@ export function GameV2HotseatPrototype({
         </section>
       ) : null}
 
-      {model.private ? (
+      {model.private?.mode === "merchant_free_develop" &&
+          model.private.merchantFreeDevelop !== null ? (
+        <section className={panel} aria-labelledby="merchant-develop-title">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold" id="merchant-develop-title">
+                <Emoji>🛒</Emoji> {model.private.seat}&apos;s free Develop
+              </h2>
+              <p className="mt-1 text-sm text-slate-600 dark:text-neutral-300">
+                Resolve the Merchant bonus before the parent Sell completes.
+                Choose {model.private.merchantFreeDevelop.requiredCount} eligible top tile{model.private.merchantFreeDevelop.requiredCount === 1 ? "" : "s"} when available.
+              </p>
+            </div>
+            <button className={secondaryButton} onClick={onHide} type="button">
+              <Emoji>🙈</Emoji> Hide choices
+            </button>
+          </div>
+
+          {model.private.merchantFreeDevelop.availability === "exact" ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+              <label className="grid gap-1 text-sm font-semibold">
+                Free Develop selection
+                <select
+                  aria-label="Merchant free Develop selection"
+                  className="rounded border border-slate-400 bg-white px-3 py-2 font-normal text-slate-950 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                  onChange={(event) =>
+                    onSelectMerchantFreeDevelop(event.target.value)}
+                  value={model.private.merchantFreeDevelop.selectedSelectionId ?? ""}
+                >
+                  <option value="">Choose an exact tile selection…</option>
+                  {model.private.merchantFreeDevelop.selections.map((selection) => (
+                    <option key={selection.id} value={selection.id}>
+                      {selection.tiles.length === 0
+                        ? `Skip ${selection.skippedCount} unavailable bonus${selection.skippedCount === 1 ? "" : "es"}`
+                        : selection.tiles.map((tile) =>
+                            `${tile.industryEmoji} ${tile.industryLabel} level ${tile.level}`
+                          ).join(" + ")}
+                      {selection.skippedCount > 0 && selection.tiles.length > 0
+                        ? ` · skip ${selection.skippedCount} unavailable`
+                        : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className={primaryButton}
+                disabled={!model.private.merchantFreeDevelop.selectionIsLegal}
+                onClick={onResolveMerchantFreeDevelop}
+                type="button"
+              >
+                <Emoji>⬆️</Emoji> Resolve free Develop
+              </button>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm">
+              <strong>Free Develop unavailable:</strong>{" "}
+              {model.private.merchantFreeDevelop.reason?.message ??
+                "No legal follow-up selection is available."}
+            </p>
+          )}
+          <p aria-live="polite" className="mt-2 text-xs text-slate-600 dark:text-neutral-300">
+            {model.private.merchantFreeDevelop.selectionIsLegal
+              ? "Free Develop selection ready."
+              : "Choose one complete selector-approved option."}
+          </p>
+        </section>
+      ) : null}
+
+      {model.private?.mode === "action" ? (
         <section className={panel} aria-labelledby="private-hand-title">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>

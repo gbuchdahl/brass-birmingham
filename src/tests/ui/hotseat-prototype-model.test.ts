@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { WILD_LOCATION_CARD_ID } from "@/engine/cards-v2";
 import { highestSpaceForIncomeLevel } from "@/engine/economy/income";
 import { createGameV2, type GameStateV2 } from "@/engine/game-v2/state";
+import { BOARD_V2 } from "@/engine/rules/generated/board-v2";
 import {
   createHotseatSession,
   hideHotseatHand,
@@ -27,10 +28,88 @@ import {
   selectedHotseatBuildPlanId,
   selectedHotseatNetworkCommand,
   selectedHotseatNetworkLinkId,
+  hotseatMerchantFreeDevelopSelectionId,
+  selectHotseatMerchantFreeDevelopSelection,
+  selectedHotseatMerchantFreeDevelopCommand,
+  selectedHotseatMerchantFreeDevelopSelectionId,
   selectedHotseatScoutCardIds,
   toggleHotseatScoutCard,
   toHotseatPrototypeModel,
 } from "@/ui/hotseat-prototype-model";
+import {
+  deserializeHotseatSession,
+  serializeHotseatSession,
+} from "@/ui/hotseat-persistence";
+
+function pendingFreeDevelop(
+  state: GameStateV2,
+  noEligible = false,
+): GameStateV2 {
+  const merchant = state.merchants.spaces.find((space) => {
+    const location = BOARD_V2.locations[
+      space.locationId as keyof typeof BOARD_V2.locations
+    ];
+    return space.active && location.kind === "merchant" &&
+      location.merchantBonus.kind === "free_develop";
+  });
+  if (merchant === undefined) {
+    throw new Error("Expected an active free-Develop Merchant");
+  }
+  const player = state.players.alice;
+  const removableKinds = [
+    "manufacturer",
+    "cotton",
+    "brewery",
+    "coal",
+    "iron",
+  ] as const;
+  const removed = noEligible
+    ? removableKinds.flatMap((kind) => player.industryInventory.stacks[kind])
+    : [];
+  return {
+    ...state,
+    progress: {
+      phase: "merchant_free_develop",
+      pending: {
+        seat: "alice",
+        count: 1,
+        source: "merchant_bonus",
+        merchantSpaceIds: [merchant.merchantSpaceId],
+      },
+    },
+    players: noEligible
+      ? {
+          ...state.players,
+          alice: {
+            ...player,
+            industryInventory: {
+              ...player.industryInventory,
+              stacks: {
+                ...player.industryInventory.stacks,
+                manufacturer: [],
+                cotton: [],
+                brewery: [],
+                coal: [],
+                iron: [],
+              },
+            },
+            removedIndustryTileIds: [
+              ...player.removedIndustryTileIds,
+              ...removed,
+            ],
+          },
+        }
+      : state.players,
+    merchants: {
+      ...state.merchants,
+      spaces: state.merchants.spaces.map((space) =>
+        space.merchantSpaceId === merchant.merchantSpaceId
+          ? { ...space, beer: 0 }
+          : space
+      ),
+    },
+  };
+}
 
 function firstExactBuild(state: GameStateV2) {
   const revealed = revealHotseatHand(createHotseatSession(state));
@@ -262,6 +341,226 @@ describe("hot-seat prototype presentation model", () => {
       reason: {
         code: "NO_LEGAL_BUILD",
         message: "The selected card has no affordable legal Build target.",
+      },
+    });
+  });
+
+  it("keeps the pending Merchant follow-up behind a privacy-safe handoff", () => {
+    const state = pendingFreeDevelop(
+      createGameV2(["alice", "bob"], "prototype-merchant-handoff"),
+    );
+    const session = createHotseatSession(state);
+    const model = toHotseatPrototypeModel(
+      toHotseatViewModel(session),
+      session.state,
+    );
+
+    expect(session.visibility).toEqual({ kind: "handoff", nextSeat: "alice" });
+    expect(model.handoff).toEqual({ nextSeat: "alice" });
+    expect(model.boundary).toMatchObject({
+      kind: "merchant_free_develop",
+      seat: "alice",
+      count: 1,
+    });
+    expect(model.private).toBeNull();
+    expect(JSON.stringify(model)).not.toContain(
+      "merchantFreeDevelopSelectionId",
+    );
+  });
+
+  it("projects exact Merchant tile selections, requires one, and clears stale choices", () => {
+    const state = pendingFreeDevelop(
+      createGameV2(["alice", "bob"], "prototype-merchant-options"),
+    );
+    const revealed = revealHotseatHand(createHotseatSession(state));
+    let model = toHotseatPrototypeModel(
+      toHotseatViewModel(revealed),
+      revealed.state,
+    );
+    const followUp = model.private?.merchantFreeDevelop;
+    if (followUp === null || followUp === undefined) {
+      throw new Error("Expected revealed Merchant free Develop options");
+    }
+
+    expect(model.private?.mode).toBe("merchant_free_develop");
+    expect(followUp).toMatchObject({
+      availability: "exact",
+      requiredCount: 1,
+      selectedSelectionId: null,
+      selectionIsLegal: false,
+      reason: null,
+    });
+    expect(followUp.selections).toHaveLength(5);
+    expect(followUp.selections.every((selection) =>
+      selection.tileIds.length === 1 &&
+      selection.id === hotseatMerchantFreeDevelopSelectionId(selection.tileIds) &&
+      selection.tiles.length === 1 &&
+      selection.tiles[0].industryLabel.length > 0 &&
+      selection.tiles[0].industryEmoji.length > 0 &&
+      selection.tiles[0].level > 0 &&
+      selection.skippedCount === 0
+    )).toBe(true);
+    expect(model.private === null
+      ? null
+      : selectedHotseatMerchantFreeDevelopCommand(model.private)).toBeNull();
+
+    const stale = selectHotseatMerchantFreeDevelopSelection(
+      revealed.draft,
+      "stale-selection",
+      followUp.selections.map((selection) => selection.id),
+    );
+    expect(selectedHotseatMerchantFreeDevelopSelectionId(stale)).toBeNull();
+    expect(stale.fields).not.toHaveProperty("merchantFreeDevelopSelectionId");
+
+    const first = followUp.selections[0];
+    const selected = setHotseatDraft(
+      revealed,
+      selectHotseatMerchantFreeDevelopSelection(
+        revealed.draft,
+        first.id,
+        followUp.selections.map((selection) => selection.id),
+      ),
+    );
+    model = toHotseatPrototypeModel(
+      toHotseatViewModel(selected),
+      selected.state,
+    );
+    expect(model.private?.merchantFreeDevelop).toMatchObject({
+      selectedSelectionId: first.id,
+      selectionIsLegal: true,
+    });
+    expect(model.private === null
+      ? null
+      : selectedHotseatMerchantFreeDevelopCommand(model.private)).toEqual({
+        type: "RESOLVE_MERCHANT_FREE_DEVELOP",
+        selection: { tileIds: first.tileIds },
+      });
+
+    const restored = deserializeHotseatSession(
+      serializeHotseatSession(selected),
+    );
+    expect(restored.state.progress.phase).toBe("merchant_free_develop");
+    expect(restored.visibility).toEqual({ kind: "handoff", nextSeat: "alice" });
+    expect(restored.draft).toBeNull();
+    expect(toHotseatPrototypeModel(
+      toHotseatViewModel(restored),
+      restored.state,
+    ).private).toBeNull();
+  });
+
+  it("resolves the free Develop and completes its parent Sell exactly once", () => {
+    const state = pendingFreeDevelop(
+      createGameV2(["alice", "bob"], "prototype-merchant-success"),
+    );
+    const initialAcceptedActions = state.events.filter(
+      (event) => event.type === "ACTION_ACCEPTED",
+    ).length;
+    const revealed = revealHotseatHand(createHotseatSession(state));
+    const revealedModel = toHotseatPrototypeModel(
+      toHotseatViewModel(revealed),
+      revealed.state,
+    );
+    const followUp = revealedModel.private?.merchantFreeDevelop;
+    const first = followUp?.selections[0];
+    if (followUp === null || followUp === undefined || first === undefined) {
+      throw new Error("Expected a Merchant free Develop selection");
+    }
+    const selected = setHotseatDraft(
+      revealed,
+      selectHotseatMerchantFreeDevelopSelection(
+        revealed.draft,
+        first.id,
+        followUp.selections.map((selection) => selection.id),
+      ),
+    );
+    const selectedModel = toHotseatPrototypeModel(
+      toHotseatViewModel(selected),
+      selected.state,
+    );
+    const command = selectedModel.private === null
+      ? null
+      : selectedHotseatMerchantFreeDevelopCommand(selectedModel.private);
+    if (command === null) throw new Error("Expected a ready follow-up command");
+    const accepted = submitHotseatCommand(selected, command);
+    const handoff = toHotseatPrototypeModel(
+      toHotseatViewModel(accepted),
+      accepted.state,
+    );
+
+    expect(accepted.state.revision).toBe(state.revision + 1);
+    expect(accepted.state.progress).toEqual({ phase: "action" });
+    expect(accepted.state.currentSeat).toBe("bob");
+    expect(accepted.state.players.alice.removedIndustryTileIds)
+      .toContain(first.tileIds[0]);
+    expect(accepted.state.events.filter(
+      (event) => event.type === "ACTION_ACCEPTED",
+    )).toHaveLength(initialAcceptedActions + 1);
+    expect(accepted.state.events.slice(-3).map((event) => event.type)).toEqual([
+      "MERCHANT_FREE_DEVELOP_RESOLVED",
+      "ACTION_ACCEPTED",
+      "COMMAND_APPLIED",
+    ]);
+    expect(accepted.acceptedCommands).toHaveLength(1);
+    expect(handoff.feedback).toMatchObject({
+      kind: "accepted",
+      message: expect.stringContaining("Merchant free Develop resolved"),
+    });
+    expect(handoff.handoff).toEqual({ nextSeat: "bob" });
+    expect(handoff.private).toBeNull();
+  });
+
+  it("offers and accepts the exact empty skip when no eligible top tile remains", () => {
+    const state = pendingFreeDevelop(
+      createGameV2(["alice", "bob"], "prototype-merchant-skip"),
+      true,
+    );
+    const removedBefore = state.players.alice.removedIndustryTileIds.length;
+    const revealed = revealHotseatHand(createHotseatSession(state));
+    const model = toHotseatPrototypeModel(
+      toHotseatViewModel(revealed),
+      revealed.state,
+    );
+    const followUp = model.private?.merchantFreeDevelop;
+    const skip = followUp?.selections[0];
+    if (followUp === null || followUp === undefined || skip === undefined) {
+      throw new Error("Expected an empty Merchant skip selection");
+    }
+
+    expect(followUp.requiredCount).toBe(1);
+    expect(followUp.selections).toEqual([expect.objectContaining({
+      id: "[]",
+      tileIds: [],
+      tiles: [],
+      skippedCount: 1,
+    })]);
+    const selected = setHotseatDraft(
+      revealed,
+      selectHotseatMerchantFreeDevelopSelection(
+        revealed.draft,
+        skip.id,
+        [skip.id],
+      ),
+    );
+    const selectedModel = toHotseatPrototypeModel(
+      toHotseatViewModel(selected),
+      selected.state,
+    );
+    const command = selectedModel.private === null
+      ? null
+      : selectedHotseatMerchantFreeDevelopCommand(selectedModel.private);
+    if (command === null) throw new Error("Expected a ready skip command");
+    expect(command.selection.tileIds).toEqual([]);
+    const accepted = submitHotseatCommand(selected, command);
+
+    expect(accepted.state.progress).toEqual({ phase: "action" });
+    expect(accepted.state.players.alice.removedIndustryTileIds).toHaveLength(
+      removedBefore,
+    );
+    expect(accepted.lastResult).toMatchObject({
+      ok: true,
+      outcome: {
+        kind: "merchant_free_develop",
+        effect: { skippedUnavailableBonuses: 1, removedTileIds: [] },
       },
     });
   });
