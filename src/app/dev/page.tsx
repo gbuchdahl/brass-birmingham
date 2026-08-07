@@ -1,9 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createGameV2, type GameStateV2 } from "@/engine/game-v2/state";
 import type { PlayableCardId } from "@/engine/cards-v2/types";
 import { GameV2HotseatPrototype } from "@/ui/GameV2HotseatPrototype";
+import {
+  clearHotseatSessionStorage,
+  loadHotseatSessionFromStorage,
+  saveHotseatSessionToStorage,
+} from "@/ui/browser-hotseat-storage";
+import { HotseatPersistenceError } from "@/ui/hotseat-persistence";
 import {
   gameV2DevSeats,
   type GameV2DevPlayerCount,
@@ -18,13 +24,21 @@ import {
   toHotseatViewModel,
 } from "@/ui/hotseat-session";
 import {
-  hotseatCardDraft,
+  selectHotseatActionCard,
+  selectHotseatNetworkLink,
   selectedHotseatCardId,
+  selectedHotseatNetworkCommand,
+  toggleHotseatScoutCard,
   toHotseatPrototypeModel,
   type HotseatSimpleCardAction,
 } from "@/ui/hotseat-prototype-model";
 
 const DEFAULT_SEED = "game-v2-dev-alpha";
+
+type HotseatSaveStatus = {
+  readonly kind: "checking" | "saved" | "restored" | "corrupt" | "unavailable";
+  readonly message: string;
+};
 
 function newGame(playerCount: GameV2DevPlayerCount, seed: string): GameStateV2 {
   return createGameV2(gameV2DevSeats(playerCount), seed);
@@ -36,10 +50,71 @@ export default function DevPage() {
   const [session, setSession] = useState(() =>
     createHotseatSession(newGame(2, DEFAULT_SEED))
   );
+  const [autosaveEnabled, setAutosaveEnabled] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<HotseatSaveStatus>({
+    kind: "checking",
+    message: "Checking this browser for a saved game…",
+  });
+  const preserveRestoreNotice = useRef(false);
   const model = useMemo(
-    () => toHotseatPrototypeModel(toHotseatViewModel(session)),
+    () => toHotseatPrototypeModel(toHotseatViewModel(session), session.state),
     [session],
   );
+
+  useEffect(() => {
+    try {
+      const restored = loadHotseatSessionFromStorage(window.localStorage);
+      if (restored !== null) {
+        preserveRestoreNotice.current = true;
+        setSession(restored);
+        setPlayerCount(restored.state.turnOrder.length as GameV2DevPlayerCount);
+        setSeed(restored.state.seed);
+        setSaveStatus({
+          kind: "restored",
+          message: `Restored revision ${restored.state.revision}. The hand is hidden for privacy.`,
+        });
+      } else {
+        setSaveStatus({
+          kind: "saved",
+          message: "Local autosave is ready in this browser.",
+        });
+      }
+      setAutosaveEnabled(true);
+    } catch (error) {
+      setAutosaveEnabled(false);
+      setSaveStatus({
+        kind: error instanceof HotseatPersistenceError
+          ? "corrupt"
+          : "unavailable",
+        message: error instanceof Error
+          ? error.message
+          : "The local save could not be read.",
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!autosaveEnabled) return;
+    try {
+      saveHotseatSessionToStorage(window.localStorage, session);
+      if (preserveRestoreNotice.current) {
+        preserveRestoreNotice.current = false;
+      } else {
+        setSaveStatus({
+          kind: "saved",
+          message: `Saved revision ${session.state.revision} in this browser.`,
+        });
+      }
+    } catch (error) {
+      setAutosaveEnabled(false);
+      setSaveStatus({
+        kind: "unavailable",
+        message: error instanceof Error
+          ? error.message
+          : "The current game could not be saved locally.",
+      });
+    }
+  }, [autosaveEnabled, session]);
 
   function reset(): void {
     setSession((current) =>
@@ -47,21 +122,140 @@ export default function DevPage() {
     );
   }
 
+  function discardBrokenSave(): void {
+    try {
+      clearHotseatSessionStorage(window.localStorage);
+      const fresh = createHotseatSession(newGame(playerCount, seed));
+      setSession(fresh);
+      setAutosaveEnabled(true);
+      setSaveStatus({
+        kind: "saved",
+        message: "The old save was cleared. Starting a fresh local game.",
+      });
+    } catch (error) {
+      setAutosaveEnabled(false);
+      setSaveStatus({
+        kind: "unavailable",
+        message: error instanceof Error
+          ? error.message
+          : "The saved game could not be cleared.",
+      });
+    }
+  }
+
   function selectCard(cardId: PlayableCardId): void {
-    setSession((current) =>
-      setHotseatDraft(current, hotseatCardDraft(cardId))
-    );
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      const card = privateModel?.cards.find((candidate) =>
+        candidate.id === cardId
+      );
+      if (
+        card === undefined ||
+        (!card.canPass && !card.canLoan && !card.canNetwork)
+      ) return current;
+      return setHotseatDraft(
+        current,
+        selectHotseatActionCard(current.draft, cardId),
+      );
+    });
+  }
+
+  function toggleScoutCard(cardId: PlayableCardId): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (privateModel === null) return current;
+      const selectableCardIds = privateModel.cards
+        .filter((card) => card.canScout)
+        .map((card) => card.id);
+      if (!selectableCardIds.includes(cardId)) return current;
+      return setHotseatDraft(
+        current,
+        toggleHotseatScoutCard(
+          current.draft,
+          cardId,
+          selectableCardIds,
+        ),
+      );
+    });
   }
 
   function submitCardAction(type: HotseatSimpleCardAction): void {
     setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (privateModel === null) return current;
       const cardId = selectedHotseatCardId(current.draft);
-      if (cardId === null) return current;
+      const legal = type === "PASS"
+        ? privateModel.legal.pass.selectedIsLegal
+        : privateModel.legal.loan.selectedIsLegal;
+      if (cardId === null || !legal) return current;
       const withTypedDraft = setHotseatDraft(
         current,
-        hotseatCardDraft(cardId, type),
+        selectHotseatActionCard(current.draft, cardId, type),
       );
       return submitHotseatCommand(withTypedDraft, { type, cardId });
+    });
+  }
+
+  function submitScout(): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (
+        privateModel === null ||
+        !privateModel.legal.scout.selectionIsLegal ||
+        privateModel.selectedScoutCardIds.length !== 3
+      ) return current;
+      const [first, second, third] = privateModel.selectedScoutCardIds;
+      return submitHotseatCommand(current, {
+        type: "SCOUT",
+        selection: { cardsToDiscard: [first, second, third] },
+      });
+    });
+  }
+
+  function selectNetworkLink(linkId: string): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (privateModel === null) return current;
+      const selectableLinkIds = privateModel.legal.network.links.map(
+        (link) => link.linkId,
+      );
+      return setHotseatDraft(
+        current,
+        selectHotseatNetworkLink(
+          current.draft,
+          linkId,
+          selectableLinkIds,
+        ),
+      );
+    });
+  }
+
+  function submitNetwork(): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (privateModel === null) return current;
+      const command = selectedHotseatNetworkCommand(privateModel);
+      return command === null
+        ? current
+        : submitHotseatCommand(current, command);
     });
   }
 
@@ -106,14 +300,35 @@ export default function DevPage() {
             </button>
           </div>
           <p className="mt-2 text-xs text-slate-500 dark:text-neutral-400">
-            Player and seed changes apply when you start a new game. Progress is currently in memory only.
+            Player and seed changes apply when you start a new game. Saves are local to this browser and single-tab only.
           </p>
+          <div
+            aria-live="polite"
+            className={`mt-2 rounded border px-3 py-2 text-xs ${
+              saveStatus.kind === "corrupt" || saveStatus.kind === "unavailable"
+                ? "border-red-400 bg-red-50 text-red-950 dark:border-red-700 dark:bg-red-950/40 dark:text-red-100"
+                : "border-slate-300 bg-slate-50 text-slate-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
+            }`}
+            role={saveStatus.kind === "corrupt" ? "alert" : "status"}
+          >
+            <span>{saveStatus.message}</span>
+            {saveStatus.kind === "corrupt" ? (
+              <button
+                className="ml-3 rounded border border-red-600 px-2 py-1 font-semibold hover:bg-red-100 dark:hover:bg-red-900"
+                onClick={discardBrokenSave}
+                type="button"
+              >
+                Discard save and start fresh
+              </button>
+            ) : null}
+          </div>
         </section>
 
         <GameV2HotseatPrototype
           model={model}
           onHide={() => setSession(hideHotseatHand)}
           onLoan={() => submitCardAction("LOAN")}
+          onNetwork={submitNetwork}
           onPass={() => submitCardAction("PASS")}
           onResolveEra={() =>
             setSession((current) =>
@@ -121,7 +336,9 @@ export default function DevPage() {
             )
           }
           onReveal={() => setSession(revealHotseatHand)}
+          onScout={submitScout}
           onSelectCard={selectCard}
+          onSelectNetworkLink={selectNetworkLink}
           onSettleRound={() =>
             setSession((current) => {
               const choices = model.boundary?.kind === "round_settlement"
@@ -135,6 +352,7 @@ export default function DevPage() {
                   });
             })
           }
+          onToggleScoutCard={toggleScoutCard}
         />
       </div>
     </main>

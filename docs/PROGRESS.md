@@ -11,10 +11,10 @@ Last updated: 2026-08-06
 - Full local verification: `pnpm check`
 
 The project is currently **engine-first**, with a deliberately plain but
-interactive hot-seat walking skeleton at `/dev`. It supports privacy-safe device
-handoff, Pass, Loan, automatic cash-covered income settlement, and the system
-boundaries required to play a deterministic Pass/Loan-only game through both
-eras.
+interactive hot-seat prototype at `/dev`. It supports privacy-safe device
+handoff, Pass, Loan, Scout, exact Canal Network link selection, automatic
+cash-covered income settlement, corruption-safe local recovery, and the system
+boundaries required to play deterministic rounds through both eras.
 
 ## Pushed and working
 
@@ -42,15 +42,19 @@ eras.
 - Deterministic command/replay coverage for the earlier engine slice.
 - An interactive `GameStateV2` hot-seat prototype at `/dev` with deterministic
   2-4 player reset controls, pass-device privacy, current-hand reveal/hide,
-  card selection, Pass and Loan, typed errors, round/era Continue controls,
-  public state summaries, recent event types, and final standings.
+  selector-backed Pass, Loan, Scout, and Canal Network actions, typed errors,
+  round/era Continue controls, public state summaries, recent event types, and
+  final standings.
 - A pure hot-seat session controller with pass-device handoff/reveal privacy,
   public/private projections, deterministic command history, draft/error
   handling, and unit coverage.
-- A fail-closed legal-options API. Pass, Loan, Scout, and Merchant free Develop
-  inputs are exactly enumerated; Build, Network, Develop, Sell, and liquidation
-  are explicitly marked as only attemptable until their progressive target
-  selectors are added.
+- A corruption-checked local save format containing a replay origin, accepted
+  command journal, collision-safe command ordinal, and byte-verified head state.
+  Invalid saves fail closed and require explicit user-confirmed replacement.
+- A fail-closed legal-options API. Pass, Loan, Scout, Canal Network, and
+  Merchant free Develop inputs are exactly enumerated; Build, Rail Network,
+  Develop, Sell, and liquidation are explicitly incomplete until their
+  progressive target selectors are added.
 - Strict event/phase provenance validation for command receipts, round and era
   boundaries, Merchant follow-ups, Canal-to-Rail transition, and terminal Rail
   scoring.
@@ -78,11 +82,12 @@ identity, a real Gloucester Sell can serialize while pending and resume safely,
 and the hot-seat controller never exposes opponent card identities through its
 public or handoff models.
 
-The browser-verified walking skeleton can take a Loan, Pass the other player,
-pay the resulting negative income from cash without liquidating an industry,
-settle into round 2, and reset to four players. Browser console output was clean.
-The full gate currently passes 40 test files / 528 tests plus the production
-build. Start it with:
+The browser-verified prototype can Scout three regular cards for both Wilds,
+build an exact reachable Canal link for £3, continue after reload without
+command-ID collisions, take a Loan, pay negative income from cash, settle into
+round 2, and reset to four players. Reload hides the current hand before any
+private state is mounted. Browser console output was clean. The full gate passes
+42 test files / 552 tests plus the production build. Start it with:
 
 ```bash
 pnpm dev
@@ -92,17 +97,14 @@ Then open <http://localhost:3000/dev>.
 
 ## Next checkpoints
 
-1. Add corruption-safe local save/recovery by persisting a replay origin,
-   accepted command journal, and validated head state; always restore to a
-   privacy-safe handoff screen.
-2. Make Pass and Loan consume the authoritative legal selector, then add Scout
-   using its already exact card-triple enumeration.
-3. Add exact Canal Network link targets and a visible first board mutation;
-   retain an explicit Rail-Network limitation until coal/beer target planning is
-   enumerated.
-4. Add Develop, Build, Sell, Merchant free Develop, and genuine asset
-   liquidation controls through progressive legal-target selectors.
-5. Run complete-game browser scenarios and the final fresh-install gate:
+1. Add exact industry Build targets and controls, including authoritative card,
+   location, industry, resource-source, and cost plans; show placed industries
+   in the public board summary.
+2. Add Develop, Sell, Merchant free Develop, and genuine asset-liquidation
+   controls through progressive legal-target selectors.
+3. Enumerate Rail Network coal/beer and optional two-link plans, then expose the
+   Rail control without weakening the already exact Canal selector.
+4. Run complete-game browser scenarios and the final fresh-install gate:
    generated-data checks, lint, typecheck, unit tests, production build, and
    accessibility smoke.
 

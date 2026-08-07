@@ -258,11 +258,13 @@ export {
 } from "./game-v2/merchant-free-develop";
 export {
   getGameV2LegalOptions,
+  type GameV2CanalNetworkOption,
   type GameV2LegalCommandKind,
   type GameV2LegalOptions,
   type GameV2LegalityDisabledReason,
   type GameV2LegalityDisabledReasonCode,
   type GameV2MerchantFreeDevelopOptions,
+  type GameV2NetworkOptions,
   type GameV2PlayerActionAvailability,
   type GameV2PlayerActionKind,
   type GameV2ScoutOptions,

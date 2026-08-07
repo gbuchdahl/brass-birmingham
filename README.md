@@ -35,9 +35,10 @@ rules artifacts are checked for staleness as part of both commands.
 
 The `/dev` route is an intentionally plain hot-seat walking skeleton backed by
 the authoritative `GameStateV2` command reducer. Pass the device, reveal only
-the current player's hand, select a card, and use Pass or Loan to play through
-deterministic rounds and eras. Player count and seed changes take effect when
-you choose **New / reset game**; progress is currently held in memory only.
+the current player's hand, and use selector-backed Pass, Loan, Scout, or Canal
+Network actions. Player count and seed changes take effect when you choose
+**New / reset game**. Progress is corruption-checked and autosaved in this
+browser; reload always returns to a privacy-safe handoff screen.
 
 ## Rules Data Workflow
 

@@ -141,6 +141,33 @@ function completedEraBoundary(
   return settled.state;
 }
 
+function withBuiltCanalLinks(
+  state: GameStateV2,
+  entries: readonly (readonly [string, string])[],
+): GameStateV2 {
+  const counts = new Map<string, number>();
+  for (const [, seat] of entries) {
+    counts.set(seat, (counts.get(seat) ?? 0) + 1);
+  }
+  const linked: GameStateV2 = {
+    ...state,
+    players: Object.fromEntries(state.turnOrder.map((seat) => [
+      seat,
+      {
+        ...state.players[seat],
+        linkTokensRemaining:
+          state.players[seat].linkTokensRemaining - (counts.get(seat) ?? 0),
+      },
+    ])),
+    board: {
+      ...state.board,
+      builtLinks: Object.fromEntries(entries),
+    },
+  };
+  requireValid(linked);
+  return linked;
+}
+
 describe("GameStateV2 legal action selectors", () => {
   it("enumerates exact simple actions and labels complex actions attemptable", () => {
     const state = createGameV2(["alice", "bob"], "legal-initial");
@@ -159,7 +186,7 @@ describe("GameStateV2 legal action selectors", () => {
     ]);
     expect(options.playerActions).toEqual([
       expect.objectContaining({ kind: "BUILD", availability: "attemptable" }),
-      expect.objectContaining({ kind: "NETWORK", availability: "attemptable" }),
+      expect.objectContaining({ kind: "NETWORK", availability: "exact" }),
       expect.objectContaining({ kind: "DEVELOP", availability: "attemptable" }),
       expect.objectContaining({ kind: "SELL", availability: "attemptable" }),
       expect.objectContaining({ kind: "LOAN", availability: "exact" }),
@@ -301,6 +328,127 @@ describe("GameStateV2 legal action selectors", () => {
     expect(exhaustedOptions.playerActions.every(
       (action) => action.reason?.code === "ACTION_LIMIT_REACHED",
     )).toBe(true);
+  });
+
+  it("enumerates exact initial Canal links and every option is reducer-accepted", () => {
+    const state = createGameV2(["alice", "bob"], "legal-canal-network");
+    const options = getGameV2LegalOptions(state);
+    const expectedLinkIds = BOARD_V2.links
+      .filter((link) => (link.eras as readonly string[]).includes("canal"))
+      .map((link) => link.id);
+
+    expect(options.network).toMatchObject({
+      availability: "exact",
+      selectableCardIds: state.cards.hands.alice,
+      reason: null,
+    });
+    expect(options.network.canalLinks.map((option) => option.linkId)).toEqual(
+      expectedLinkIds,
+    );
+    for (const option of options.network.canalLinks) {
+      expect(option.adjacentLocations.every((location) => location.label.length > 0))
+        .toBe(true);
+      const result = executeGameV2Command(state, {
+        schemaVersion: 1,
+        commandId: `network-${option.linkId}`,
+        gameId: state.gameId,
+        expectedRevision: state.revision,
+        actorSeat: state.currentSeat,
+        command: {
+          type: "NETWORK",
+          selection: {
+            ...option.selection,
+            cardId: options.network.selectableCardIds[0],
+          },
+        },
+      });
+      if (!result.ok) throw new Error(result.error.message);
+      expect(result.outcome).toMatchObject({
+        kind: "player_action",
+        actionType: "NETWORK",
+      });
+      expect(result.state.board.builtLinks[option.linkId]).toBe("alice");
+    }
+  });
+
+  it("restricts Canal links to the actor network and reports exact blockers", () => {
+    const base = createGameV2(["alice", "bob"], "legal-network-blockers");
+    const canalLinks = BOARD_V2.links.filter(
+      (link) => (link.eras as readonly string[]).includes("canal"),
+    );
+    const anchor = canalLinks[0];
+    const connected = withBuiltCanalLinks(base, [[anchor.id, "alice"]]);
+    const connectedLocations = new Set(anchor.adjacentLocations);
+    const expectedReachable = canalLinks
+      .filter((link) =>
+        link.id !== anchor.id &&
+        link.adjacentLocations.some((location) => connectedLocations.has(location))
+      )
+      .map((link) => link.id);
+    const connectedOptions = getGameV2LegalOptions(connected);
+    expect(connectedOptions.network.canalLinks.map((option) => option.linkId))
+      .toEqual(expectedReachable);
+    expect(connectedOptions.network.canalLinks.map((option) => option.linkId))
+      .not.toContain(anchor.id);
+
+    const broke: GameStateV2 = {
+      ...base,
+      players: {
+        ...base.players,
+        alice: { ...base.players.alice, money: 2 },
+      },
+    };
+    requireValid(broke);
+    expect(getGameV2LegalOptions(broke).network).toMatchObject({
+      availability: "disabled",
+      reason: { code: "INSUFFICIENT_NETWORK_MONEY" },
+    });
+
+    const noTokens = withBuiltCanalLinks(
+      base,
+      canalLinks.slice(0, base.players.alice.linkTokensRemaining).map(
+        (link) => [link.id, "alice"] as const,
+      ),
+    );
+    expect(getGameV2LegalOptions(noTokens).network).toMatchObject({
+      availability: "disabled",
+      reason: { code: "NO_LINK_TOKENS" },
+    });
+
+    const incident = canalLinks.filter((link) =>
+      link.adjacentLocations.some((location) => connectedLocations.has(location))
+    );
+    const surrounded = withBuiltCanalLinks(
+      base,
+      incident.map((link) => [
+        link.id,
+        link.id === anchor.id ? "alice" : "bob",
+      ] as const),
+    );
+    expect(getGameV2LegalOptions(surrounded).network).toMatchObject({
+      availability: "disabled",
+      canalLinks: [],
+      reason: { code: "NO_REACHABLE_CANAL_LINK" },
+    });
+  });
+
+  it("keeps Rail Network explicitly attemptable until resource targets are exact", () => {
+    const boundary = completedEraBoundary(
+      createGameV2(["alice", "bob"], "legal-rail-network"),
+    );
+    const rail = resolveGameEra(boundary);
+    if (!rail.ok) throw new Error(rail.error.message);
+    const options = getGameV2LegalOptions(rail.state);
+
+    expect(options.network).toMatchObject({
+      availability: "attemptable",
+      canalLinks: [],
+      selectableCardIds: rail.state.cards.hands[rail.state.currentSeat],
+      reason: { code: "RAIL_NETWORK_OPTIONS_NOT_ENUMERATED" },
+    });
+    expect(options.playerActions.find((action) => action.kind === "NETWORK"))
+      .toMatchObject({ availability: "attemptable" });
+    expect(options.legalCommandKinds).toContain("NETWORK");
   });
 });
 

@@ -3,7 +3,9 @@ import {
   WILD_LOCATION_CARD_ID,
   type PlayableCardId,
 } from "../cards-v2/types";
+import type { NetworkActionSelection } from "../actions-v2/network";
 import { canTakeLoan } from "../economy/income";
+import { BOARD_V2 } from "../rules/generated/board-v2";
 import { WILD_CARD_SUPPLY } from "../rules/generated/cards";
 import {
   INDUSTRY_TILE_BY_ID,
@@ -15,6 +17,7 @@ import type {
   GameV2Command,
   GameV2PlayerCommand,
 } from "./commands";
+import { executeNetworkForGameV2 } from "./action-adapters";
 import {
   validateGameStateV2,
   type GameProgressV2,
@@ -38,6 +41,10 @@ export type GameV2LegalityDisabledReasonCode =
   | "WILD_CARD_IN_HAND"
   | "WILD_SUPPLY_EMPTY"
   | "INSUFFICIENT_SCOUT_CARDS"
+  | "NO_LINK_TOKENS"
+  | "INSUFFICIENT_NETWORK_MONEY"
+  | "NO_REACHABLE_CANAL_LINK"
+  | "RAIL_NETWORK_OPTIONS_NOT_ENUMERATED"
   | "NO_MERCHANT_FREE_DEVELOP_PENDING"
   | "NOT_PENDING_ACTOR"
   | "NO_SYSTEM_COMMAND_REQUIRED"
@@ -51,8 +58,9 @@ export type GameV2LegalityDisabledReason = {
 
 /**
  * `exact` means the selector also exposes every supported input choice.
- * `attemptable` means the phase/card preconditions are met, but detailed
- * Build, Network, Develop, or Sell target enumeration is not implemented yet.
+ * `attemptable` means the phase/card preconditions are met, but detailed target
+ * enumeration is not implemented yet. Canal Network is exact; Rail Network
+ * remains attemptable until coal, beer, and optional two-link inputs are listed.
  */
 export type GameV2PlayerActionAvailability = {
   readonly kind: GameV2PlayerActionKind;
@@ -67,6 +75,24 @@ export type GameV2ScoutOptions = {
     PlayableCardId,
     PlayableCardId,
   ])[];
+  readonly reason: GameV2LegalityDisabledReason | null;
+};
+
+export type GameV2CanalNetworkOption = {
+  readonly linkId: string;
+  readonly adjacentLocations: readonly {
+    readonly id: string;
+    readonly label: string;
+  }[];
+  readonly linkCost: 3;
+  readonly totalCost: 3;
+  readonly selection: Omit<NetworkActionSelection, "cardId">;
+};
+
+export type GameV2NetworkOptions = {
+  readonly availability: "exact" | "attemptable" | "disabled";
+  readonly selectableCardIds: readonly PlayableCardId[];
+  readonly canalLinks: readonly GameV2CanalNetworkOption[];
   readonly reason: GameV2LegalityDisabledReason | null;
 };
 
@@ -96,6 +122,7 @@ export type GameV2LegalOptions = {
   readonly passCardIds: readonly PlayableCardId[];
   readonly loanCardIds: readonly PlayableCardId[];
   readonly scout: GameV2ScoutOptions;
+  readonly network: GameV2NetworkOptions;
   readonly merchantFreeDevelop: GameV2MerchantFreeDevelopOptions;
   readonly system: GameV2SystemCommandOptions;
 };
@@ -112,7 +139,6 @@ const PLAYER_ACTION_KINDS = [
 
 const PARTIALLY_ENUMERATED_ACTIONS = new Set<GameV2PlayerActionKind>([
   "BUILD",
-  "NETWORK",
   "DEVELOP",
   "SELL",
 ]);
@@ -289,10 +315,95 @@ function disabledMerchant(
   };
 }
 
+function disabledNetwork(
+  disabledReason: GameV2LegalityDisabledReason,
+): GameV2NetworkOptions {
+  return {
+    availability: "disabled",
+    selectableCardIds: [],
+    canalLinks: [],
+    reason: disabledReason,
+  };
+}
+
+function canalNetworkOptions(
+  state: GameStateV2,
+  hand: readonly PlayableCardId[],
+  playerBaseReason: GameV2LegalityDisabledReason | null,
+): GameV2NetworkOptions {
+  if (playerBaseReason !== null) return disabledNetwork(playerBaseReason);
+  if (state.era === "rail") {
+    return {
+      availability: "attemptable",
+      selectableCardIds: [...hand],
+      canalLinks: [],
+      reason: reason(
+        "RAIL_NETWORK_OPTIONS_NOT_ENUMERATED",
+        "Rail Network targets still require coal, beer, and optional two-link enumeration.",
+      ),
+    };
+  }
+
+  const player = state.players[state.currentSeat];
+  if (player.linkTokensRemaining < 1) {
+    return disabledNetwork(reason(
+      "NO_LINK_TOKENS",
+      "The active player has no link tokens remaining.",
+    ));
+  }
+  if (player.money < 3) {
+    return disabledNetwork(reason(
+      "INSUFFICIENT_NETWORK_MONEY",
+      "A Canal Network action costs £3.",
+    ));
+  }
+
+  const cardId = hand[0];
+  const canalLinks: GameV2CanalNetworkOption[] = [];
+  for (const link of BOARD_V2.links) {
+    if (!(link.eras as readonly string[]).includes("canal")) continue;
+    const selection: NetworkActionSelection = {
+      linkIds: [link.id],
+      coalSources: [],
+      beerSourceId: null,
+      cardId,
+    };
+    const planned = executeNetworkForGameV2(state, selection);
+    if (!planned.ok) continue;
+    canalLinks.push({
+      linkId: link.id,
+      adjacentLocations: link.adjacentLocations.map((id) => ({
+        id,
+        label: BOARD_V2.locations[id as keyof typeof BOARD_V2.locations].label,
+      })),
+      linkCost: 3,
+      totalCost: 3,
+      selection: {
+        linkIds: [link.id],
+        coalSources: [],
+        beerSourceId: null,
+      },
+    });
+  }
+  if (canalLinks.length === 0) {
+    return disabledNetwork(reason(
+      "NO_REACHABLE_CANAL_LINK",
+      "No unbuilt Canal link is connected to the active player's network.",
+    ));
+  }
+  return {
+    availability: "exact",
+    selectableCardIds: [...hand],
+    canalLinks,
+    reason: null,
+  };
+}
+
 /**
  * Selects the currently usable command kinds and exact simple-action inputs.
  * Complex board targets remain explicitly `attemptable` until their dedicated
- * legal-target selectors are implemented.
+ * legal-target selectors are implemented. Canal Network is the first exact
+ * board-target slice and is planned through the authoritative action adapter.
  */
 export function getGameV2LegalOptions(
   state: GameStateV2,
@@ -320,6 +431,7 @@ export function getGameV2LegalOptions(
         cardTriples: [],
         reason: invalid,
       },
+      network: disabledNetwork(invalid),
       merchantFreeDevelop: disabledMerchant(invalid),
       system: { kind: null, availability: "disabled", reason: invalid },
     };
@@ -366,8 +478,16 @@ export function getGameV2LegalOptions(
         : null;
   const scoutReason = commonReason ?? scoutSpecificReason;
   const scoutTriples = scoutReason === null ? cardTriples(regularCardIds) : [];
+  const network = canalNetworkOptions(state, hand, playerBaseReason);
 
   const playerActions = PLAYER_ACTION_KINDS.map((kind) => {
+    if (kind === "NETWORK") {
+      return {
+        kind,
+        availability: network.availability,
+        reason: network.reason,
+      };
+    }
     const actionReason = kind === "PASS"
       ? passReason
       : kind === "LOAN"
@@ -484,6 +604,7 @@ export function getGameV2LegalOptions(
       cardTriples: scoutTriples,
       reason: scoutReason,
     },
+    network,
     merchantFreeDevelop,
     system,
   };

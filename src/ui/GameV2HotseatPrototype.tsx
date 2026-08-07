@@ -6,8 +6,12 @@ type GameV2HotseatPrototypeProps = {
   readonly onReveal: () => void;
   readonly onHide: () => void;
   readonly onSelectCard: (cardId: PlayableCardId) => void;
+  readonly onToggleScoutCard: (cardId: PlayableCardId) => void;
+  readonly onSelectNetworkLink: (linkId: string) => void;
   readonly onPass: () => void;
   readonly onLoan: () => void;
+  readonly onScout: () => void;
+  readonly onNetwork: () => void;
   readonly onSettleRound: () => void;
   readonly onResolveEra: () => void;
 };
@@ -30,13 +34,18 @@ export function GameV2HotseatPrototype({
   onReveal,
   onHide,
   onSelectCard,
+  onToggleScoutCard,
+  onSelectNetworkLink,
   onPass,
   onLoan,
+  onScout,
+  onNetwork,
   onSettleRound,
   onResolveEra,
 }: GameV2HotseatPrototypeProps) {
   const game = model.public;
   const selectedCardId = model.private?.selectedCardId ?? null;
+  const selectedScoutCardIds = model.private?.selectedScoutCardIds ?? [];
 
   return (
     <div className="space-y-5">
@@ -48,7 +57,7 @@ export function GameV2HotseatPrototype({
                 HOT-SEAT ALPHA
               </span>
               <span className="rounded border border-slate-400 px-2 py-1 text-xs font-bold tracking-wide">
-                PASS + LOAN
+                PASS + LOAN + SCOUT + CANAL NETWORK
               </span>
             </div>
             <h1 className="text-2xl font-bold">Brass: Birmingham playable prototype</h1>
@@ -186,7 +195,7 @@ export function GameV2HotseatPrototype({
                 <Emoji>🃏</Emoji> {model.private.seat}&apos;s private hand
               </h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-neutral-300">
-                Select one card, then Pass or take a £30 Loan.
+                Choose one action card for Pass, Loan, or Canal Network; or toggle exactly three regular cards to Scout.
               </p>
             </div>
             <button className={secondaryButton} onClick={onHide} type="button">
@@ -195,39 +204,151 @@ export function GameV2HotseatPrototype({
           </div>
 
           <fieldset className="mt-4">
-            <legend className="text-sm font-bold">Choose a card</legend>
+            <legend className="text-sm font-bold">Choose cards</legend>
             <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {model.private.cards.map((card, index) => {
                 const selected = card.id === selectedCardId;
+                const selectedForScout = selectedScoutCardIds.includes(card.id);
+                const scoutLimitReached = selectedScoutCardIds.length >= 3 &&
+                  !selectedForScout;
                 return (
-                  <button
-                    aria-pressed={selected}
-                    className={`rounded border p-3 text-left text-sm transition ${
-                      selected
+                  <article
+                    className={`rounded border p-2 text-sm transition ${
+                      selected || selectedForScout
                         ? "border-amber-500 bg-amber-50 ring-2 ring-amber-300 dark:border-amber-600 dark:bg-amber-950/40 dark:ring-amber-800"
                         : "border-slate-300 bg-white hover:border-slate-500 dark:border-neutral-700 dark:bg-neutral-950 dark:hover:border-neutral-500"
                     }`}
                     key={`${card.id}:${index}`}
-                    onClick={() => onSelectCard(card.id)}
-                    title={card.id}
-                    type="button"
                   >
-                    <span><Emoji>🃏</Emoji> {card.label}</span>
+                    <p className="px-1 pt-1 font-semibold"><Emoji>🃏</Emoji> {card.label}</p>
                     <span className="mt-1 block truncate font-mono text-[10px] text-slate-500 dark:text-neutral-400">
                       {card.id}
                     </span>
-                  </button>
+                    <div className="mt-2 grid gap-1">
+                      <button
+                        aria-label={`Use ${card.label} as the action card`}
+                        aria-pressed={selected}
+                        className={secondaryButton}
+                        disabled={!card.canPass && !card.canLoan && !card.canNetwork}
+                        onClick={() => onSelectCard(card.id)}
+                        type="button"
+                      >
+                        {selected ? <Emoji>✅</Emoji> : <Emoji>⬜</Emoji>} Action card
+                      </button>
+                      <button
+                        aria-label={`${selectedForScout ? "Remove" : "Add"} ${card.label} ${selectedForScout ? "from" : "to"} Scout selection`}
+                        aria-pressed={selectedForScout}
+                        className={secondaryButton}
+                        disabled={!card.canScout || scoutLimitReached}
+                        onClick={() => onToggleScoutCard(card.id)}
+                        type="button"
+                      >
+                        {selectedForScout ? <Emoji>✅</Emoji> : <Emoji>⬜</Emoji>} Scout
+                      </button>
+                    </div>
+                  </article>
                 );
               })}
             </div>
           </fieldset>
 
+          <fieldset className={`${inset} mt-4`}>
+            <legend className="px-1 text-sm font-bold">
+              <Emoji>🛶</Emoji> Canal Network
+            </legend>
+            {model.private.legal.network.availability === "exact" ? (
+              <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                <label className="grid gap-1 text-sm font-semibold">
+                  Link to build
+                  <select
+                    aria-label="Canal link"
+                    className="rounded border border-slate-400 bg-white px-3 py-2 font-normal text-slate-950 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                    onChange={(event) => onSelectNetworkLink(event.target.value)}
+                    value={model.private.selectedNetworkLinkId ?? ""}
+                  >
+                    <option value="">Choose a reachable Canal link…</option>
+                    {model.private.legal.network.links.map((link) => (
+                      <option key={link.linkId} value={link.linkId}>
+                        {link.endpointLabel} · £{link.cost}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className={primaryButton}
+                  disabled={!model.private.legal.network.selectionIsLegal}
+                  onClick={onNetwork}
+                  type="button"
+                >
+                  <Emoji>🛶</Emoji> Build Canal link (£3)
+                </button>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm">
+                <strong>
+                  {model.private.legal.network.availability === "attemptable"
+                    ? "Rail Network not yet enumerated:"
+                    : "Network unavailable:"}
+                </strong>{" "}
+                {model.private.legal.network.reason?.message ??
+                  "No exact Network choices are available."}
+              </p>
+            )}
+            {model.private.legal.network.availability === "exact" ? (
+              <p aria-live="polite" className="mt-2 text-xs text-slate-600 dark:text-neutral-300">
+                {!model.private.legal.network.selectedCardIsLegal
+                  ? "Choose a selector-approved action card from your hand."
+                  : model.private.selectedNetworkLinkId === null
+                    ? "Choose one reachable link. Canal Network costs £3."
+                    : "Canal Network selection ready."}
+              </p>
+            ) : null}
+          </fieldset>
+
+          <div aria-live="polite" className="mt-4 space-y-1 text-sm">
+            {model.private.legal.pass.reason ? (
+              <p><strong>Pass unavailable:</strong> {model.private.legal.pass.reason.message}</p>
+            ) : null}
+            {model.private.legal.loan.reason ? (
+              <p><strong>Loan unavailable:</strong> {model.private.legal.loan.reason.message}</p>
+            ) : null}
+            {model.private.legal.scout.reason ? (
+              <p><strong>Scout unavailable:</strong> {model.private.legal.scout.reason.message}</p>
+            ) : selectedScoutCardIds.length < 3 ? (
+              <p>
+                Scout: choose {3 - selectedScoutCardIds.length} more regular card{3 - selectedScoutCardIds.length === 1 ? "" : "s"}.
+              </p>
+            ) : model.private.legal.scout.selectionIsLegal ? (
+              <p>Scout selection ready: exchange these three cards for both Wild cards.</p>
+            ) : (
+              <p>Scout unavailable: that three-card combination is not legal.</p>
+            )}
+          </div>
+
           <div className="mt-4 flex flex-wrap gap-2">
-            <button className={secondaryButton} disabled={!selectedCardId} onClick={onPass} type="button">
+            <button
+              className={secondaryButton}
+              disabled={!model.private.legal.pass.selectedIsLegal}
+              onClick={onPass}
+              type="button"
+            >
               <Emoji>⏭️</Emoji> Pass
             </button>
-            <button className={primaryButton} disabled={!selectedCardId} onClick={onLoan} type="button">
+            <button
+              className={primaryButton}
+              disabled={!model.private.legal.loan.selectedIsLegal}
+              onClick={onLoan}
+              type="button"
+            >
               <Emoji>💰</Emoji> Take Loan (£30)
+            </button>
+            <button
+              className={primaryButton}
+              disabled={!model.private.legal.scout.selectionIsLegal}
+              onClick={onScout}
+              type="button"
+            >
+              <Emoji>🧭</Emoji> Scout (3 → 2 Wilds)
             </button>
           </div>
         </section>

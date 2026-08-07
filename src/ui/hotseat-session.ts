@@ -43,6 +43,8 @@ export type HotseatLastResult =
     };
 
 export type HotseatSession = {
+  /** State from which acceptedCommands must deterministically reproduce state. */
+  readonly replayOrigin: GameStateV2;
   /** The only authoritative game state. It must never be passed to presentation components. */
   readonly state: GameStateV2;
   /** Only accepted envelopes are replayable history. */
@@ -182,15 +184,54 @@ function requireValidState(state: GameStateV2): void {
   }
 }
 
+function hotseatOrdinalFromCommandId(
+  gameId: string,
+  commandId: unknown,
+): number | null {
+  if (typeof commandId !== "string") return null;
+  const prefix = `hotseat:${gameId}:`;
+  if (!commandId.startsWith(prefix)) return null;
+  const suffix = commandId.slice(prefix.length);
+  if (!/^[0-9]+$/.test(suffix)) return null;
+  const ordinal = Number(suffix);
+  return Number.isSafeInteger(ordinal) && ordinal >= 1 ? ordinal : null;
+}
+
+/**
+ * Finds an ordinal beyond every persisted hot-seat ID. Generic revisions are
+ * deliberately ignored because commands created by other clients do not use
+ * this ID namespace; rejected hot-seat attempts are restored from save data.
+ */
+export function minimumNextHotseatCommandOrdinal(state: GameStateV2): number {
+  let maximum = 0;
+  for (const event of state.events) {
+    if (
+      event.type !== "COMMAND_APPLIED" ||
+      typeof event.data !== "object" ||
+      event.data === null ||
+      Array.isArray(event.data)
+    ) continue;
+    const ordinal = hotseatOrdinalFromCommandId(
+      state.gameId,
+      (event.data as Record<string, unknown>).commandId,
+    );
+    if (ordinal !== null) maximum = Math.max(maximum, ordinal);
+  }
+  return maximum < Number.MAX_SAFE_INTEGER
+    ? maximum + 1
+    : Number.MAX_SAFE_INTEGER;
+}
+
 export function createHotseatSession(state: GameStateV2): HotseatSession {
   requireValidState(state);
   return {
+    replayOrigin: state,
     state,
     acceptedCommands: [],
     visibility: handoffFor(state),
     draft: null,
     lastResult: null,
-    nextCommandOrdinal: 1,
+    nextCommandOrdinal: minimumNextHotseatCommandOrdinal(state),
   };
 }
 
@@ -291,6 +332,7 @@ export function submitHotseatCommand(
     playerPrivatePhase(result.state);
 
   return {
+    replayOrigin: session.replayOrigin,
     state: result.state,
     acceptedCommands: [...session.acceptedCommands, envelope],
     visibility: remainsWithRevealedSeat
