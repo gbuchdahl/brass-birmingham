@@ -266,6 +266,20 @@ export function setHotseatDraft(
   return { ...session, draft };
 }
 
+/** Stores only public round-settlement form state while no hand is revealed. */
+export function setHotseatBoundaryDraft(
+  session: HotseatSession,
+  draft: HotseatDraft | null,
+): HotseatSession {
+  if (
+    session.state.progress.phase !== "round_settlement" ||
+    session.visibility.kind !== "handoff" ||
+    session.visibility.nextSeat !== null ||
+    (draft !== null && draft.commandType !== "SETTLE_ROUND")
+  ) return session;
+  return { ...session, draft };
+}
+
 function actorFor(
   state: GameStateV2,
   command: GameV2Command,

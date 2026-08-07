@@ -11,6 +11,7 @@ import {
   nextHotseatCommandId,
   resetHotseatSession,
   revealHotseatHand,
+  setHotseatBoundaryDraft,
   setHotseatDraft,
   submitHotseatCommand,
   toHotseatPublicModel,
@@ -42,7 +43,7 @@ function passEnvelope(
   };
 }
 
-function roundTwoState(): GameStateV2 {
+function roundSettlementState(): GameStateV2 {
   const initial = createGameV2(["alice", "bob"], "hotseat-round-two");
   const alice = executeGameV2Command(initial, passEnvelope(initial, "setup-alice"));
   expectAccepted(alice);
@@ -51,11 +52,17 @@ function roundTwoState(): GameStateV2 {
     passEnvelope(alice.state, "setup-bob"),
   );
   expectAccepted(bob);
-  const settlement = executeGameV2Command(bob.state, {
+  expect(bob.state.progress).toEqual({ phase: "round_settlement" });
+  return bob.state;
+}
+
+function roundTwoState(): GameStateV2 {
+  const boundary = roundSettlementState();
+  const settlement = executeGameV2Command(boundary, {
     schemaVersion: 1,
     commandId: "setup-settle",
-    gameId: bob.state.gameId,
-    expectedRevision: bob.state.revision,
+    gameId: boundary.gameId,
+    expectedRevision: boundary.revision,
     actorSeat: null,
     command: { type: "SETTLE_ROUND", liquidationChoices: {} },
   });
@@ -106,6 +113,36 @@ describe("hot-seat privacy projections", () => {
     expect(hidden.visibility).toEqual({ kind: "handoff", nextSeat: "alice" });
     expect(hidden.draft).toBeNull();
     expect(toHotseatViewModel(hidden).private).toBeNull();
+  });
+
+  it("stores only public settlement drafts at an unrevealed round boundary", () => {
+    const boundary = createHotseatSession(roundSettlementState());
+    const settlementDraft = {
+      commandType: "SETTLE_ROUND" as const,
+      fields: { liquidationChoices: { alice: [] } },
+    };
+    const withBoundaryDraft = setHotseatBoundaryDraft(
+      boundary,
+      settlementDraft,
+    );
+
+    expect(boundary.visibility).toEqual({ kind: "handoff", nextSeat: null });
+    expect(setHotseatDraft(boundary, settlementDraft)).toBe(boundary);
+    expect(withBoundaryDraft.draft).toBe(settlementDraft);
+    expect(toHotseatViewModel(withBoundaryDraft).private).toBeNull();
+    expect(JSON.stringify(toHotseatViewModel(withBoundaryDraft)))
+      .not.toContain("liquidationChoices");
+    expect(setHotseatBoundaryDraft(withBoundaryDraft, {
+      commandType: "PASS",
+      fields: {},
+    })).toBe(withBoundaryDraft);
+
+    const actionState = createHotseatSession(
+      createGameV2(["alice", "bob"], "hotseat-boundary-reject"),
+    );
+    expect(setHotseatBoundaryDraft(actionState, settlementDraft))
+      .toBe(actionState);
+    expect(setHotseatBoundaryDraft(withBoundaryDraft, null).draft).toBeNull();
   });
 });
 
