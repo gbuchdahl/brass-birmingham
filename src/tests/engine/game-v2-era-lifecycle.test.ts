@@ -318,6 +318,7 @@ describe("composite Canal-to-Rail resolution", () => {
       currentSeat: "bob",
       actionsUsed: 0,
       actionLimit: 2,
+      progress: { phase: "action" },
       roundSpend: { bob: 0, alice: 0 },
     });
     for (const space of state.merchants.spaces) {
@@ -449,6 +450,10 @@ describe("final Rail resolution", () => {
       "ERA_SCORED",
       "GAME_ENDED",
     ]);
+    expect(result.state.progress).toEqual({
+      phase: "ended",
+      terminal: { standings: result.standings },
+    });
   });
 
   it("uses VP, income, cash, and explicit shared ranks after final scoring", () => {
@@ -585,16 +590,20 @@ describe("era lifecycle validation and immutability", () => {
           },
         ],
       };
-      requireValid(invalidMarker);
+      const validation = validateGameStateV2(invalidMarker);
+      expect(validation).toMatchObject({ ok: false });
+      if (validation.ok) throw new Error("Expected inconsistent progress");
+      expect(validation.errors.map((error) => error.code)).toContain(
+        "PROGRESS_STATE",
+      );
 
       const result = resolveGameEra(invalidMarker);
 
       expect(result).toMatchObject({
         ok: false,
-        error: { code: "NOT_ERA_BOUNDARY" },
+        error: { code: "INVALID_GAME_STATE" },
       });
       expect(result.state).toBe(invalidMarker);
-      requireValid(result.state);
     }
   });
 
@@ -630,16 +639,20 @@ describe("era lifecycle validation and immutability", () => {
           { ...settlementEvent, data },
         ],
       };
-      requireValid(incomplete);
+      const validation = validateGameStateV2(incomplete);
+      expect(validation).toMatchObject({ ok: false });
+      if (validation.ok) throw new Error("Expected inconsistent progress");
+      expect(validation.errors.map((error) => error.code)).toContain(
+        "PROGRESS_STATE",
+      );
 
       const result = resolveGameEra(incomplete);
 
       expect(result).toMatchObject({
         ok: false,
-        error: { code: "NOT_ERA_BOUNDARY" },
+        error: { code: "INVALID_GAME_STATE" },
       });
       expect(result.state).toBe(incomplete);
-      requireValid(result.state);
     }
   });
 

@@ -204,11 +204,13 @@ export {
   validateGameStateV2,
   type GameEraV2,
   type GameEventV2,
+  type GameProgressV2,
   type GameStateV2,
   type GameStateV2ValidationError,
   type GameStateV2ValidationErrorCode,
   type GameStateV2ValidationResult,
   type PlacedIndustryStateV2,
+  type PendingMerchantFreeDevelopV2,
   type PlayerStateV2,
 } from "./game-v2/state";
 export {
@@ -228,9 +230,32 @@ export {
   type AdaptedActionEffectV2,
   type FlipIncomeAwardV2,
   type GameV2ActionAdapterError,
+  type GameV2ActionAdapterErrorCode,
   type GameV2ActionAdapterResult,
   type PendingActionFollowUpV2,
 } from "./game-v2/action-adapters";
+export {
+  GAME_V2_COMMAND_SCHEMA_VERSION,
+  executeGameV2Command,
+  replayGameV2Commands,
+  type GameV2Command,
+  type GameV2CommandBoundaryErrorCode,
+  type GameV2CommandEnvelope,
+  type GameV2CommandError,
+  type GameV2CommandOutcome,
+  type GameV2CommandResult,
+  type GameV2PlayerActionEffect,
+  type GameV2PlayerCommand,
+  type GameV2ReplayResult,
+} from "./game-v2/commands";
+export {
+  resolveMerchantFreeDevelopV2,
+  type MerchantFreeDevelopEffectV2,
+  type MerchantFreeDevelopErrorV2,
+  type MerchantFreeDevelopErrorCodeV2,
+  type MerchantFreeDevelopResultV2,
+  type MerchantFreeDevelopSelectionV2,
+} from "./game-v2/merchant-free-develop";
 export {
   applyAcceptedActionV2,
   resolveCompletedRoundV2,

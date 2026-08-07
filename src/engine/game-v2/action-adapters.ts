@@ -1,6 +1,7 @@
 import {
   executeBuildAction,
   type BuildActionEffect,
+  type BuildActionErrorCode,
   type BuildActionSelection,
   type BuildActionState,
   type BuiltIndustryState,
@@ -8,12 +9,14 @@ import {
 import {
   developAction,
   type DevelopActionEffect,
+  type DevelopActionErrorCode,
   type DevelopActionSelection,
   type DevelopActionState,
 } from "../actions-v2/develop";
 import {
   executeNetworkAction,
   type NetworkActionEffect,
+  type NetworkActionErrorCode,
   type NetworkActionSelection,
   type NetworkActionState,
   type NetworkIndustryKind,
@@ -21,17 +24,20 @@ import {
 import {
   passAction,
   type PassActionEffect,
+  type PassActionErrorCode,
   type PassActionState,
 } from "../actions-v2/pass";
 import {
   scoutAction,
   type ScoutActionEffect,
+  type ScoutActionErrorCode,
   type ScoutActionSelection,
   type ScoutActionState,
 } from "../actions-v2/scout";
 import {
   sellAction,
   type SellActionEffect,
+  type SellActionErrorCode,
   type SellActionSelection,
   type SellActionState,
   type SellIndustryState,
@@ -39,6 +45,7 @@ import {
 import {
   takeLoan,
   type LoanActionEffect,
+  type LoanActionErrorCode,
   type LoanActionState,
 } from "../actions-v2/loan";
 import type { PlayableCardId } from "../cards-v2/types";
@@ -50,12 +57,29 @@ import {
 } from "../rules/generated/industry-tiles-v2";
 import type {
   GameStateV2,
+  PendingMerchantFreeDevelopV2,
   PlacedIndustryStateV2,
   PlayerStateV2,
 } from "./state";
 
+export type GameV2ActionAdapterErrorCode =
+  | BuildActionErrorCode
+  | DevelopActionErrorCode
+  | NetworkActionErrorCode
+  | PassActionErrorCode
+  | ScoutActionErrorCode
+  | SellActionErrorCode
+  | LoanActionErrorCode
+  | "INVALID_ACTIVE_PLAYER"
+  | "PENDING_FOLLOW_UP_REQUIRED"
+  | "ROUND_SETTLEMENT_REQUIRED"
+  | "ERA_TRANSITION_REQUIRED"
+  | "GAME_ALREADY_ENDED"
+  | "INVALID_GAME_PHASE"
+  | "INSUFFICIENT_LINK_TOKENS";
+
 export type GameV2ActionAdapterError = {
-  readonly code: string;
+  readonly code: GameV2ActionAdapterErrorCode;
   readonly message: string;
   readonly [detail: string]: unknown;
 };
@@ -74,12 +98,9 @@ export type AdaptedActionEffectV2<T extends object> = T & {
   readonly incomeAwards: readonly FlipIncomeAwardV2[];
 };
 
-export type PendingActionFollowUpV2 = {
+/** @deprecated Prefer the authoritative `state.progress.pending` payload. */
+export type PendingActionFollowUpV2 = PendingMerchantFreeDevelopV2 & {
   readonly kind: "free_develop";
-  readonly seat: string;
-  readonly count: number;
-  readonly source: "merchant_bonus";
-  readonly merchantSpaceIds: readonly string[];
 };
 
 export type GameV2ActionAdapterResult<T extends object> =
@@ -103,6 +124,21 @@ type ActivePlayer = {
 function activePlayer(
   state: GameStateV2,
 ): ActivePlayer | GameV2ActionAdapterError {
+  if (state.progress?.phase !== "action") {
+    const code = state.progress?.phase === "merchant_free_develop"
+      ? "PENDING_FOLLOW_UP_REQUIRED"
+      : state.progress?.phase === "round_settlement"
+        ? "ROUND_SETTLEMENT_REQUIRED"
+        : state.progress?.phase === "era_transition"
+          ? "ERA_TRANSITION_REQUIRED"
+          : state.progress?.phase === "ended"
+            ? "GAME_ALREADY_ENDED"
+            : "INVALID_GAME_PHASE";
+    return {
+      code,
+      message: "A regular action can only execute during the action phase.",
+    };
+  }
   const seat = state.currentSeat;
   const player = state.players[seat];
   if (
@@ -617,10 +653,26 @@ export function executeSellForGameV2(
       ? [sale.merchantSpaceId]
       : [],
   );
+  const pending: PendingMerchantFreeDevelopV2 | null = pendingCount > 0
+    ? {
+        seat: active.seat,
+        count: pendingCount,
+        source: "merchant_bonus",
+        merchantSpaceIds,
+      }
+    : null;
   return {
     ok: true,
     state: {
       ...state,
+      ...(pending
+        ? {
+            progress: {
+              phase: "merchant_free_develop" as const,
+              pending,
+            },
+          }
+        : {}),
       players: income.players,
       cards: result.state.cards,
       merchants: {
@@ -633,14 +685,11 @@ export function executeSellForGameV2(
       board: { ...state.board, placedIndustries },
     },
     effect: effectWithAwards(result.effect, income.awards),
-    ...(pendingCount > 0
+    ...(pending
       ? {
           pending: {
             kind: "free_develop" as const,
-            seat: active.seat,
-            count: pendingCount,
-            source: "merchant_bonus" as const,
-            merchantSpaceIds,
+            ...pending,
           },
         }
       : {}),

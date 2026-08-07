@@ -109,6 +109,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function atCompletedEraBoundary(state: GameStateV2): boolean {
+  if (state.progress.phase !== "era_transition") return false;
   const playerCount = state.turnOrder.length as 2 | 3 | 4;
   const finalRound = SETUP_DATA.playerCounts[playerCount]?.roundsPerEra;
   const settlementEvent = state.events.at(-1);
@@ -343,7 +344,7 @@ export function resolveGameEra(
       validationErrors: validation.errors,
     });
   }
-  if (state.events.some((event) => event.type === "GAME_ENDED")) {
+  if (state.progress.phase === "ended") {
     return reject(state, {
       code: "ALREADY_ENDED",
       message: "The game has already ended.",
@@ -397,6 +398,10 @@ export function resolveGameEra(
     const nextState: GameStateV2 = {
       ...state,
       revision: state.revision + 1,
+      progress: {
+        phase: "ended",
+        terminal: { standings },
+      },
       players: scoredPlayers,
       events: appendEvents(state.events, [
         eraScoredEvent,
@@ -453,6 +458,7 @@ export function resolveGameEra(
   const nextState: GameStateV2 = {
     ...state,
     revision: state.revision + 1,
+    progress: { phase: "action" },
     era: "rail",
     round: 1,
     turnNumber: 1,

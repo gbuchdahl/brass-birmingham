@@ -15,8 +15,8 @@ import { INDUSTRY_TILE_BY_ID } from "../rules/generated/industry-tiles-v2";
 import { SETUP_DATA } from "../rules/generated/ruleset";
 import {
   validateGameStateV2,
-  type GameStateV2,
   type GameEventV2,
+  type GameStateV2,
   type PlacedIndustryStateV2,
 } from "./state";
 
@@ -30,6 +30,7 @@ export type TurnLifecycleErrorCode =
   | "INVALID_GAME_STATE"
   | "INVALID_ACTION_EFFECT"
   | "ACTION_LIMIT_REACHED"
+  | "PENDING_FOLLOW_UP_REQUIRED"
   | "ROUND_SETTLEMENT_REQUIRED"
   | "ERA_TRANSITION_REQUIRED"
   | "GAME_ALREADY_ENDED"
@@ -98,33 +99,22 @@ function isNonNegativeSafeInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) >= 0;
 }
 
-function isEraCompleteRoundSettlement(
-  state: GameStateV2,
-  event: GameEventV2,
-): boolean {
-  return (
-    event.type === "ROUND_SETTLED" &&
-    isRecord(event.data) &&
-    event.data.settlementComplete === true &&
-    event.data.eraComplete === true &&
-    event.data.era === state.era &&
-    event.data.completedRound === state.round
-  );
-}
-
-function hasEraCompleteRoundSettlement(state: GameStateV2): boolean {
-  return state.events.some((event) => isEraCompleteRoundSettlement(state, event));
-}
-
 function actionBoundaryFailure(state: GameStateV2): TurnLifecycleFailure | null {
-  if (state.events.some((event) => event.type === "GAME_ENDED")) {
+  if (state.progress.phase === "ended") {
     return reject(
       state,
       "GAME_ALREADY_ENDED",
       "No actions can be accepted after the game has ended.",
     );
   }
-  if (hasEraCompleteRoundSettlement(state)) {
+  if (state.progress.phase === "merchant_free_develop") {
+    return reject(
+      state,
+      "PENDING_FOLLOW_UP_REQUIRED",
+      "The pending Merchant free Develop must resolve before accepting the Sell action.",
+    );
+  }
+  if (state.progress.phase === "era_transition") {
     return reject(
       state,
       "ERA_TRANSITION_REQUIRED",
@@ -133,14 +123,16 @@ function actionBoundaryFailure(state: GameStateV2): TurnLifecycleFailure | null 
         : "The completed Rail Era must resolve final scoring before another action.",
     );
   }
-  if (hasCompletedRoundBoundary(state)) {
+  if (state.progress.phase === "round_settlement") {
     return reject(
       state,
       "ROUND_SETTLEMENT_REQUIRED",
       "The completed round must be settled before another action.",
     );
   }
-  return null;
+  return state.progress.phase === "action"
+    ? null
+    : reject(state, "INVALID_GAME_STATE", "Unknown authoritative game phase.");
 }
 
 function validateEntryState(state: GameStateV2): TurnLifecycleFailure | null {
@@ -286,6 +278,9 @@ export function applyAcceptedActionV2(
     actionsUsed: nextActionsUsed,
     roundSpend,
     cards,
+    progress: {
+      phase: roundComplete ? "round_settlement" : "action",
+    },
     events: appendEvent(state, "ACTION_ACCEPTED", eventData),
   };
   const invalidTransition = validateTransition(state, nextState);
@@ -298,17 +293,6 @@ export function applyAcceptedActionV2(
     roundComplete,
     refilledCards,
   };
-}
-
-function hasCompletedRoundBoundary(state: GameStateV2): boolean {
-  return state.events.some(
-    (event) =>
-      event.type === "ACTION_ACCEPTED" &&
-      isRecord(event.data) &&
-      event.data.roundComplete === true &&
-      event.data.era === state.era &&
-      event.data.round === state.round,
-  );
 }
 
 type PlannedSettlement = {
@@ -326,21 +310,28 @@ export function resolveCompletedRoundV2(
 ): ResolveCompletedRoundResultV2 {
   const invalidState = validateEntryState(state);
   if (invalidState) return invalidState;
-  if (state.events.some((event) => event.type === "GAME_ENDED")) {
+  if (state.progress.phase === "ended") {
     return reject(
       state,
       "GAME_ALREADY_ENDED",
       "No round can be settled after the game has ended.",
     );
   }
-  if (hasEraCompleteRoundSettlement(state)) {
+  if (state.progress.phase === "merchant_free_develop") {
+    return reject(
+      state,
+      "PENDING_FOLLOW_UP_REQUIRED",
+      "The pending Merchant free Develop must resolve before round settlement.",
+    );
+  }
+  if (state.progress.phase === "era_transition") {
     return reject(
       state,
       "ERA_TRANSITION_REQUIRED",
       "This era's final round has already been settled.",
     );
   }
-  if (!hasCompletedRoundBoundary(state)) {
+  if (state.progress.phase !== "round_settlement") {
     return reject(
       state,
       "ROUND_NOT_COMPLETE",
@@ -533,6 +524,7 @@ export function resolveCompletedRoundV2(
       ? state.actionLimit
       : actionsPerTurn(state.era, nextRound),
     roundSpend: createRoundSpendLedger(nextTurnOrder),
+    progress: { phase: eraComplete ? "era_transition" : "action" },
     players,
     board: { ...state.board, placedIndustries },
     events: appendEvent(state, "ROUND_SETTLED", eventData),

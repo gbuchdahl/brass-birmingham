@@ -80,6 +80,25 @@ function requireSuccess(
 }
 
 describe("Canal Network action", () => {
+  it("allows the first link anywhere when the player has no board presence", () => {
+    const base = networkState("canal", 3);
+    const initial: NetworkActionState = {
+      ...base,
+      industries: {
+        bob_dudley: industry("bob", "dudley"),
+      },
+    };
+
+    const result = requireSuccess(
+      executeNetworkAction(
+        initial,
+        selection(["link_birmingham_coventry"]),
+      ),
+    );
+
+    expect(result.state.builtLinks.link_birmingham_coventry).toBe("alice");
+  });
+
   it("builds exactly one canal for £3 at the money boundary", () => {
     const initial = networkState("canal", 3);
     const action = selection(["link_birmingham_coventry"]);

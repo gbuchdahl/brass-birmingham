@@ -48,7 +48,7 @@ describe("GameStateV2 deterministic setup", () => {
       );
 
       expect(state).toMatchObject({
-        schemaVersion: 2,
+        schemaVersion: 3,
         revision: 0,
         seed: `exact-${playerCount}`,
         era: "canal",
@@ -190,7 +190,7 @@ describe("GameStateV2 deterministic setup", () => {
   it("records authoritative generated metadata rather than copied magic values", () => {
     const state = createGameV2(["alice", "bob"], "metadata");
 
-    expect(GAME_STATE_V2_SCHEMA_VERSION).toBe(2);
+    expect(GAME_STATE_V2_SCHEMA_VERSION).toBe(3);
     expect(state.ruleset).toEqual({
       id: RULESET_META.id,
       version: RULESET_META.version,
@@ -209,6 +209,39 @@ describe("GameStateV2 deterministic setup", () => {
     expect(state.players.alice.incomeMarkerSpace).toBe(
       INCOME_TRACK_DATA.track.startingSpace,
     );
+    expect(state.progress).toEqual({ phase: "action" });
+  });
+
+  it("rejects malformed or boundary-inconsistent authoritative progress", () => {
+    const initial = createGameV2(["alice", "bob"], "malformed-progress");
+    const corruptions: unknown[] = [
+      {},
+      { phase: "unknown" },
+      { phase: "round_settlement" },
+      {
+        phase: "merchant_free_develop",
+        pending: {
+          seat: "bob",
+          count: 0,
+          source: "merchant_bonus",
+          merchantSpaceIds: ["not-a-merchant-space"],
+        },
+      },
+      { phase: "ended", terminal: { standings: [] } },
+    ];
+
+    for (const progress of corruptions) {
+      const invalid = {
+        ...initial,
+        progress,
+      } as GameStateV2;
+      const result = validateGameStateV2(invalid);
+      expect(result).toMatchObject({ ok: false });
+      if (result.ok) throw new Error("Expected invalid progress");
+      expect(result.errors.map((error) => error.code)).toContain(
+        "PROGRESS_STATE",
+      );
+    }
   });
 
   it("rejects malformed schema, identity, RNG, and turn state", () => {

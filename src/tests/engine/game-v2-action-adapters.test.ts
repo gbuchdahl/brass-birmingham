@@ -19,6 +19,7 @@ import {
   type GameStateV2,
   type PlacedIndustryStateV2,
 } from "@/engine/game-v2/state";
+import { applyAcceptedActionV2 } from "@/engine/game-v2/turn-lifecycle";
 import { advanceIncomeSpaces } from "@/engine/economy/income";
 import { BOARD_V2 } from "@/engine/rules/generated/board-v2";
 import { CARD_CATALOG } from "@/engine/rules/generated/cards";
@@ -625,6 +626,34 @@ describe("Sell adapter Merchant and income responsibilities", () => {
       source: "merchant_bonus",
       merchantSpaceIds: [merchant.merchantSpaceId],
     });
+    expect(result.state.progress).toEqual({
+      phase: "merchant_free_develop",
+      pending: {
+        seat: "alice",
+        count: 1,
+        source: "merchant_bonus",
+        merchantSpaceIds: [merchant.merchantSpaceId],
+      },
+    });
+    const blockedAction = executePassForGameV2(
+      result.state,
+      result.state.cards.hands.alice[0],
+    );
+    expect(blockedAction).toMatchObject({
+      ok: false,
+      error: { code: "PENDING_FOLLOW_UP_REQUIRED" },
+    });
+    expect(blockedAction.state).toBe(result.state);
+    const blockedLifecycle = applyAcceptedActionV2(result.state, {
+      type: "SOLD",
+      actionsConsumed: 1,
+      moneySpent: 0,
+    });
+    expect(blockedLifecycle).toMatchObject({
+      ok: false,
+      error: { code: "PENDING_FOLLOW_UP_REQUIRED" },
+    });
+    expect(blockedLifecycle.state).toBe(result.state);
     expect(result.state.board.placedIndustries[buildSpace.spaceId].flipped)
       .toBe(true);
     expect(result.effect.incomeAwards).toEqual([]);

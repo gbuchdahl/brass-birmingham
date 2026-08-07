@@ -43,7 +43,7 @@ function requireValidGameState(value: unknown): GameStateV2 {
   );
 }
 
-/** Serializes only a state that currently satisfies every v2 invariant. */
+/** Serializes only a state that currently satisfies every GameStateV2 invariant. */
 export function serializeGameV2(state: GameStateV2): string {
   return JSON.stringify(requireValidGameState(state));
 }

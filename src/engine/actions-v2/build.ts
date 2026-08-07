@@ -749,9 +749,11 @@ export function executeBuildAction(
   }
   const permission = cardPermission(state, selection, space);
   if (!permission.ok) return permission;
+  const networkLocations = playerNetworkLocations(state);
   if (
     !permission.locationException &&
-    !playerNetworkLocations(state).has(space.locationId)
+    networkLocations.size > 0 &&
+    !networkLocations.has(space.locationId)
   ) {
     return reject(
       state,

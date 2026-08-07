@@ -359,14 +359,19 @@ function prepareNetworkAction(
   }
 
   const actorNetwork = playerNetworkLocations(state);
+  let mayPlaceFirstLinkAnywhere = actorNetwork.size === 0;
   for (const link of links) {
-    if (!link.adjacentLocations.some((locationId) => actorNetwork.has(locationId))) {
+    if (
+      !mayPlaceFirstLinkAnywhere &&
+      !link.adjacentLocations.some((locationId) => actorNetwork.has(locationId))
+    ) {
       return reject(
         state,
         "LINK_NOT_IN_PLAYER_NETWORK",
         `Link is not adjacent to ${state.seat}'s network: ${link.id}.`,
       );
     }
+    mayPlaceFirstLinkAnywhere = false;
     for (const locationId of link.adjacentLocations) {
       actorNetwork.add(locationId);
     }

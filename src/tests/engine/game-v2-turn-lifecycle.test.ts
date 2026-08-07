@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { discardActionCard } from "@/engine/cards-v2/zones";
-import { highestSpaceForIncomeLevel } from "@/engine/economy/income";
+import {
+  highestSpaceForIncomeLevel,
+  incomeLevelAt,
+} from "@/engine/economy/income";
 import {
   applyAcceptedActionV2,
   resolveCompletedRoundV2,
@@ -14,6 +17,7 @@ import {
 } from "@/engine/game-v2/state";
 import { removeBuiltIndustryTile } from "@/engine/player-v2";
 import { SETUP_DATA } from "@/engine/rules/generated/ruleset";
+import { rankFinalStandings } from "@/engine/scoring/era-transition";
 
 function requireAccepted(
   result: ReturnType<typeof applyAcceptedActionV2>,
@@ -153,6 +157,7 @@ describe("GameStateV2 turn lifecycle", () => {
       actionsUsed: 0,
       turnNumber: 2,
       revision: 1,
+      progress: { phase: "action" },
       roundSpend: { alice: 3, bob: 0 },
     });
     expect(accepted.state.cards.hands.alice).toHaveLength(8);
@@ -211,6 +216,7 @@ describe("GameStateV2 turn lifecycle", () => {
     initial = withIncome(initial, "alice", 3);
     initial = withIncome(initial, "bob", -2, 5);
     const boundary = completeRound(initial, { alice: 4, bob: 0, carol: 4 });
+    expect(boundary.progress).toEqual({ phase: "round_settlement" });
     const settled = requireSettled(
       resolveCompletedRoundV2(boundary, { bob: [] }),
     );
@@ -221,6 +227,7 @@ describe("GameStateV2 turn lifecycle", () => {
     expect(settled.state.turnOrder).toEqual(["bob", "alice", "carol"]);
     expect(settled.state.currentSeat).toBe("bob");
     expect(settled.state.roundSpend).toEqual({ bob: 0, alice: 0, carol: 0 });
+    expect(settled.state.progress).toEqual({ phase: "action" });
     expect(settled.state.players.alice.money).toBe(20);
     expect(settled.state.players.bob.money).toBe(3);
     expect(settled.settlements.alice).toMatchObject({
@@ -291,6 +298,7 @@ describe("GameStateV2 turn lifecycle", () => {
       resolveCompletedRoundV2(completeRound(canal), {}),
     );
     expect(canalResult.eraComplete).toBe(true);
+    expect(canalResult.state.progress).toEqual({ phase: "era_transition" });
     expect(canalResult.state.round).toBe(maxCanalRound);
     expect(canalResult.state.players.alice.money).toBe(19);
     expect(canalResult.settlements.alice.skipped).toBe(false);
@@ -307,6 +315,7 @@ describe("GameStateV2 turn lifecycle", () => {
       resolveCompletedRoundV2(completeRound(rail), {}),
     );
     expect(railResult.eraComplete).toBe(true);
+    expect(railResult.state.progress).toEqual({ phase: "era_transition" });
     expect(railResult.state.round).toBe(maxRailRound);
     expect(railResult.state.players.alice.money).toBe(17);
     expect(railResult.settlements.alice.skipped).toBe(true);
@@ -391,14 +400,23 @@ describe("GameStateV2 turn lifecycle", () => {
 
   it("blocks lifecycle transitions after GAME_ENDED", () => {
     const base = createGameV2(["alice", "bob"], "ended-action-barrier");
+    const standings = rankFinalStandings(base.turnOrder.map((seat) => ({
+      playerId: seat,
+      victoryPoints: base.players[seat].victoryPoints,
+      incomeLevel: incomeLevelAt(base.players[seat].incomeMarkerSpace),
+      cash: base.players[seat].money,
+    })));
     const endedMarker: GameStateV2 = {
       ...base,
+      era: "rail",
+      actionLimit: 2,
+      progress: { phase: "ended", terminal: { standings } },
       events: [
         ...base.events,
         {
           sequence: base.events.length,
           type: "GAME_ENDED",
-          data: { standings: [] },
+          data: { standings },
         },
       ],
     };

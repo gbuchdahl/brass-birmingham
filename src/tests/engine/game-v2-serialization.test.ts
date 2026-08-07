@@ -22,6 +22,36 @@ describe("GameStateV2 serialization", () => {
     },
   );
 
+  it("round-trips an authoritative pending Merchant follow-up", () => {
+    const initial = createGameV2(["alice", "bob"], "serialization-pending");
+    const merchant = initial.merchants.spaces.find(
+      (space) => space.active && space.locationId === "merchant_gloucester",
+    );
+    if (!merchant) throw new Error("Expected an active Gloucester Merchant");
+    const pending: GameStateV2 = {
+      ...initial,
+      progress: {
+        phase: "merchant_free_develop",
+        pending: {
+          seat: "alice",
+          count: 1,
+          source: "merchant_bonus",
+          merchantSpaceIds: [merchant.merchantSpaceId],
+        },
+      },
+      merchants: {
+        ...initial.merchants,
+        spaces: initial.merchants.spaces.map((space) =>
+          space.merchantSpaceId === merchant.merchantSpaceId
+            ? { ...space, beer: 0 }
+            : space
+        ),
+      },
+    };
+
+    expect(deserializeGameV2(serializeGameV2(pending))).toEqual(pending);
+  });
+
   it("rejects invalid JSON and non-object JSON with typed errors", () => {
     for (const [serialized, code] of [
       ["{", "INVALID_JSON"],
@@ -42,6 +72,11 @@ describe("GameStateV2 serialization", () => {
   it("distinguishes unsupported schemas and generated-rules mismatches", () => {
     const state = createGameV2(["alice", "bob"], "serialization-metadata");
     const unsupported = JSON.stringify({ ...state, schemaVersion: 99 });
+    const legacyWithoutProgress = JSON.stringify({
+      ...state,
+      schemaVersion: 2,
+      progress: undefined,
+    });
     const wrongRules = JSON.stringify({
       ...state,
       ruleset: { ...state.ruleset, version: "future" },
@@ -50,6 +85,12 @@ describe("GameStateV2 serialization", () => {
     try {
       deserializeGameV2(unsupported);
       throw new Error("Expected unsupported schema failure");
+    } catch (error) {
+      expect(error).toMatchObject({ code: "UNSUPPORTED_STATE_SCHEMA" });
+    }
+    try {
+      deserializeGameV2(legacyWithoutProgress);
+      throw new Error("Expected legacy schema failure");
     } catch (error) {
       expect(error).toMatchObject({ code: "UNSUPPORTED_STATE_SCHEMA" });
     }

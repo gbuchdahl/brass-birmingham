@@ -144,6 +144,21 @@ function requireSuccess(
 }
 
 describe("Build placement, cards, and eras", () => {
+  it("allows an Industry card anywhere when the player has no board presence", () => {
+    const initial = withCard(buildState("canal", 5), INDUSTRY_COAL);
+    const result = requireSuccess(
+      executeBuildAction(
+        initial,
+        build("cannock_2", "coal", INDUSTRY_COAL),
+      ),
+    );
+
+    expect(result.state.placements.cannock_2).toMatchObject({
+      owner: "alice",
+      tileId: "coal-1-a",
+    });
+  });
+
   it("builds the next Canal face in an exact space using a location card", () => {
     const initial = buildState("canal", 5);
     const result = requireSuccess(
@@ -205,7 +220,19 @@ describe("Build placement, cards, and eras", () => {
     });
     expect(result.effect.flippedProviderSpaceIds).toEqual(["dudley_1"]);
 
-    const disconnected = { ...connected, builtLinks: {} };
+    const disconnected = {
+      ...connected,
+      builtLinks: {},
+      placements: {
+        ...connected.placements,
+        cannock_1: placement(
+          "alice",
+          "cannock_1",
+          "cannock",
+          "manufacturer-1-a",
+        ),
+      },
+    };
     const rejected = executeBuildAction(disconnected, action);
     expect(rejected).toMatchObject({
       ok: false,
@@ -359,8 +386,26 @@ describe("Build placement, cards, and eras", () => {
     );
     expect(industryResult.state.cards.wildSupplies.industry).toBe(4);
 
-    const rejected = executeBuildAction(
+    const firstIndustryBuild = executeBuildAction(
       base,
+      build("cannock_2", "coal", WILD_INDUSTRY_CARD_ID),
+    );
+    expect(firstIndustryBuild.ok).toBe(true);
+
+    const disconnected: BuildActionState = {
+      ...base,
+      placements: {
+        dudley_1: placement(
+          "alice",
+          "dudley_1",
+          "dudley",
+          "coal-1-a",
+          { coal: 1 },
+        ),
+      },
+    };
+    const rejected = executeBuildAction(
+      disconnected,
       build("cannock_2", "coal", WILD_INDUSTRY_CARD_ID),
     );
     expect(rejected).toMatchObject({
@@ -434,7 +479,7 @@ describe("Build resources and production", () => {
     );
     expect(executeBuildAction(base, action)).toMatchObject({
       ok: false,
-      error: { code: "BUILD_NOT_IN_PLAYER_NETWORK" },
+      error: { code: "COAL_MARKET_NOT_CONNECTED" },
     });
 
     const connected: BuildActionState = {

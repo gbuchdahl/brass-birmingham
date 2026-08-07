@@ -5,6 +5,7 @@ import {
   purchaseFromResourceMarket,
   type ResourceMarketState,
 } from "../economy/markets";
+import { incomeLevelAt } from "../economy/income";
 import { actionsPerTurn, createRoundSpendLedger } from "../lifecycle";
 import {
   createIndustryInventory,
@@ -32,6 +33,10 @@ import {
 } from "../rules/generated/merchant-tiles";
 import { RULESET_META, SETUP_DATA } from "../rules/generated/ruleset";
 import {
+  rankFinalStandings,
+  type PlayerStanding,
+} from "../scoring/era-transition";
+import {
   createCanalSetup,
   createMerchantSetup,
   type MerchantSpaceSetup,
@@ -43,7 +48,7 @@ import {
   type RandomState,
 } from "../util/random-state";
 
-export const GAME_STATE_V2_SCHEMA_VERSION = 2 as const;
+export const GAME_STATE_V2_SCHEMA_VERSION = 3 as const;
 
 export type GameEraV2 = "canal" | "rail";
 
@@ -77,6 +82,32 @@ export type GameEventV2 = {
   readonly data: unknown;
 };
 
+export type PendingMerchantFreeDevelopV2 = {
+  readonly seat: string;
+  readonly count: number;
+  readonly source: "merchant_bonus";
+  readonly merchantSpaceIds: readonly string[];
+};
+
+/**
+ * Authoritative game-flow state. The discriminated union prevents pending and
+ * terminal payloads from existing outside the phase that owns them.
+ */
+export type GameProgressV2 =
+  | { readonly phase: "action" }
+  | { readonly phase: "round_settlement" }
+  | { readonly phase: "era_transition" }
+  | {
+      readonly phase: "merchant_free_develop";
+      readonly pending: PendingMerchantFreeDevelopV2;
+    }
+  | {
+      readonly phase: "ended";
+      readonly terminal: {
+        readonly standings: readonly PlayerStanding[];
+      };
+    };
+
 export type GameStateV2 = {
   readonly schemaVersion: typeof GAME_STATE_V2_SCHEMA_VERSION;
   readonly ruleset: {
@@ -102,6 +133,7 @@ export type GameStateV2 = {
     readonly random: string;
   };
   readonly randomState: RandomState;
+  readonly progress: GameProgressV2;
   readonly era: GameEraV2;
   readonly round: number;
   readonly turnNumber: number;
@@ -131,6 +163,7 @@ export type GameStateV2ValidationErrorCode =
   | "RULESET"
   | "IDENTITY"
   | "RANDOM_STATE"
+  | "PROGRESS_STATE"
   | "TURN_STATE"
   | "PLAYER_STATE"
   | "CARD_CONSERVATION"
@@ -269,6 +302,7 @@ export function createGameV2(
     seed,
     setupSeeds,
     randomState: createRandomState(setupSeeds.random),
+    progress: { phase: "action" },
     era: "canal",
     round: 1,
     turnNumber: 1,
@@ -759,6 +793,160 @@ export function validateGameStateV2(value: unknown): GameStateV2ValidationResult
     if (state.events[0]?.type !== "GAME_CREATED") {
       add("EVENT_LOG", "events.0", "First event must be GAME_CREATED.");
     }
+  }
+
+  const progress = state.progress;
+  let progressValid = isRecord(progress);
+  const progressPhase = isRecord(progress) ? progress.phase : undefined;
+  const supportedProgressPhase =
+    progressPhase === "action" ||
+    progressPhase === "round_settlement" ||
+    progressPhase === "era_transition" ||
+    progressPhase === "merchant_free_develop" ||
+    progressPhase === "ended";
+  if (!supportedProgressPhase) progressValid = false;
+
+  if (isRecord(progress) && progress.phase === "merchant_free_develop") {
+    const pending = progress.pending;
+    const merchantSpaceIds = isRecord(pending) &&
+        Array.isArray(pending.merchantSpaceIds)
+      ? pending.merchantSpaceIds
+      : [];
+    const canonicalMerchantSpaces = new Map(
+      Array.isArray(merchantSpaces)
+        ? merchantSpaces
+          .filter(isRecord)
+          .map((space) => [space.merchantSpaceId, space] as const)
+        : [],
+    );
+    const uniqueMerchantSpaceIds =
+      merchantSpaceIds.length > 0 &&
+      new Set(merchantSpaceIds).size === merchantSpaceIds.length;
+    let freeDevelopCount = 0;
+    for (const merchantSpaceId of merchantSpaceIds) {
+      if (typeof merchantSpaceId !== "string") {
+        progressValid = false;
+        continue;
+      }
+      const merchantSpace = canonicalMerchantSpaces.get(merchantSpaceId);
+      const locationId = MERCHANT_SPACE_LOCATIONS.get(merchantSpaceId);
+      const location = locationId === undefined
+        ? undefined
+        : BOARD_V2.locations[locationId as keyof typeof BOARD_V2.locations];
+      if (
+        !merchantSpace ||
+        merchantSpace.merchantSpaceId !== merchantSpaceId ||
+        merchantSpace.locationId !== locationId ||
+        merchantSpace.active !== true ||
+        merchantSpace.beer !== 0 ||
+        location?.kind !== "merchant" ||
+        location.merchantBonus.kind !== "free_develop"
+      ) {
+        progressValid = false;
+        continue;
+      }
+      freeDevelopCount += location.merchantBonus.amount;
+    }
+    if (
+      !isRecord(pending) ||
+      pending.seat !== state.currentSeat ||
+      !order.includes(String(pending.seat)) ||
+      !Number.isSafeInteger(pending.count) ||
+      (pending.count as number) <= 0 ||
+      pending.source !== "merchant_bonus" ||
+      !uniqueMerchantSpaceIds ||
+      freeDevelopCount !== pending.count
+    ) {
+      progressValid = false;
+    }
+  }
+
+  let canonicalStandings: readonly PlayerStanding[] | null = null;
+  if (
+    isRecord(progress) &&
+    progress.phase === "ended" &&
+    isRecord(progress.terminal) &&
+    Array.isArray(progress.terminal.standings)
+  ) {
+    try {
+      canonicalStandings = rankFinalStandings(
+        order.map((seat) => {
+          const player = playerRecord[seat] as unknown as PlayerStateV2;
+          return {
+            playerId: seat,
+            victoryPoints: player.victoryPoints,
+            incomeLevel: incomeLevelAt(player.incomeMarkerSpace),
+            cash: player.money,
+          };
+        }),
+      );
+    } catch {
+      progressValid = false;
+    }
+    if (
+      state.era !== "rail" ||
+      canonicalStandings === null ||
+      JSON.stringify(progress.terminal.standings) !==
+        JSON.stringify(canonicalStandings)
+    ) {
+      progressValid = false;
+    }
+  } else if (progressPhase === "ended") {
+    progressValid = false;
+  }
+
+  const events = Array.isArray(state.events) ? state.events : [];
+  const gameEndedEvents = events.filter(
+    (event) => isRecord(event) && event.type === "GAME_ENDED",
+  );
+  const gameEndedEvent = gameEndedEvents[0];
+  const hasCompletedRound = events.some(
+    (event) =>
+      isRecord(event) &&
+      event.type === "ACTION_ACCEPTED" &&
+      isRecord(event.data) &&
+      event.data.roundComplete === true &&
+      event.data.era === state.era &&
+      event.data.round === state.round,
+  );
+  const hasCompletedEraSettlement = events.some(
+    (event) =>
+      isRecord(event) &&
+      event.type === "ROUND_SETTLED" &&
+      isRecord(event.data) &&
+      event.data.settlementComplete === true &&
+      event.data.eraComplete === true &&
+      event.data.era === state.era &&
+      event.data.completedRound === state.round,
+  );
+  const expectedProgressPhase = gameEndedEvent
+    ? "ended"
+    : hasCompletedEraSettlement
+      ? "era_transition"
+      : hasCompletedRound
+        ? "round_settlement"
+        : "action";
+  const phaseMatchesBoundary = progressPhase === expectedProgressPhase ||
+    (expectedProgressPhase === "action" &&
+      progressPhase === "merchant_free_develop");
+  if (!phaseMatchesBoundary) progressValid = false;
+  if (progressPhase === "ended") {
+    if (
+      gameEndedEvents.length !== 1 ||
+      !isRecord(gameEndedEvent?.data) ||
+      canonicalStandings === null ||
+      JSON.stringify(gameEndedEvent.data.standings) !==
+        JSON.stringify(canonicalStandings)
+    ) {
+      progressValid = false;
+    }
+  }
+  if (!progressValid) {
+    add(
+      "PROGRESS_STATE",
+      "progress",
+      "Game progress, pending follow-up, terminal result, or lifecycle boundary is inconsistent.",
+    );
   }
 
   return errors.length === 0

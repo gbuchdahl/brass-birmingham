@@ -25,7 +25,7 @@ describe("GameV2 dev presentation model", () => {
       expect(model.identity).toMatchObject({
         gameId: state.gameId,
         seed,
-        schemaVersion: 2,
+        schemaVersion: 3,
       });
       expect(model.progress).toEqual({
         era: "canal",
