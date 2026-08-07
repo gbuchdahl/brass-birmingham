@@ -292,6 +292,21 @@ export {
   type GameV2DevelopTile,
 } from "./game-v2/develop-legal";
 export {
+  getGameV2SellLegalOptions,
+  type GameV2SellBeerSummary,
+  type GameV2SellBreweryBeerSummary,
+  type GameV2SellIndustrySummary,
+  type GameV2SellLegalDisabledReason,
+  type GameV2SellLegalDisabledReasonCode,
+  type GameV2SellLegalOptions,
+  type GameV2SellMerchantBeerSummary,
+  type GameV2SellMerchantSummary,
+  type GameV2SellNextSale,
+  type GameV2SellPendingFollowUp,
+  type GameV2SellPlan,
+  type GameV2SellProjectedSale,
+} from "./game-v2/sell-legal";
+export {
   applyAcceptedActionV2,
   resolveCompletedRoundV2,
   type AcceptedActionEffectV2,

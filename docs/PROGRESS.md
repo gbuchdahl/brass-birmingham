@@ -55,12 +55,16 @@ required to play deterministic rounds through both eras.
   Invalid saves fail closed and require explicit user-confirmed replacement.
 - Fail-closed progressive legal selectors. Pass, Loan, Scout, Canal Network,
   Merchant free Develop, card-specific industry Build, and card-specific
-  Develop plans are exact. Build plans include board space, top tile, overbuild,
-  materially distinct coal/iron sources, market cost, production outcome, and
-  total cost. Develop plans include ordered physical top tiles, exact board and
-  market iron, price, provider depletion, and resulting inventory. Every
-  emitted plan is accepted by the authoritative command reducer. Rail Network,
-  Develop, Sell, and liquidation remain explicitly incomplete in the UI.
+  Develop plans are exact. Sell is exact through a bounded progressive selector
+  whose every accepted prefix can stop as a complete action or append one exact
+  next sale. Build plans include board space, top tile, overbuild, materially
+  distinct coal/iron sources, market cost, production outcome, and total cost.
+  Develop plans include ordered physical top tiles, exact board and market iron,
+  price, provider depletion, and resulting inventory. Sell choices include the
+  product, Merchant, mandatory beer source, reward, income, and any pending free
+  Develop. Every emitted plan is accepted by the authoritative command reducer.
+  Rail Network, Develop, Sell, and liquidation remain explicitly incomplete in
+  the UI.
 - Strict event/phase provenance validation for command receipts, round and era
   boundaries, Merchant follow-ups, Canal-to-Rail transition, and terminal Rail
   scoring.
@@ -96,6 +100,13 @@ The engine also exposes exact, reducer-checked Develop plans for a selected
 card, including one- or two-tile removal, mandatory board iron before market
 iron, exact market prices, and provider flips. The selector is bounded and has
 a dense-board regression; its browser control is the next UI checkpoint.
+
+Sell now has an exact progressive engine contract as well. It avoids factorial
+multi-sale enumeration by exposing one decision layer at a time: each accepted
+prefix is a reducer-ready action the player may submit immediately, while its
+next choices append one legal product/Merchant/beer combination. It preserves
+both material sale orders, deduplicates only byte-equivalent adapter outcomes,
+and projects Merchant rewards and pending Gloucester free Develop.
 
 The browser-verified prototype can build a real level-1 Cannock coal mine for
 £5 and show its two coal cubes, Scout three regular cards for both Wilds, build
