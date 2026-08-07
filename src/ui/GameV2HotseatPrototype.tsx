@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { PlayableCardId } from "@/engine/cards-v2/types";
 import type { HotseatPrototypeModel } from "@/ui/hotseat-prototype-model";
 
@@ -45,6 +46,28 @@ function Emoji({ children }: { readonly children: string }) {
   return <span aria-hidden="true">{children}</span>;
 }
 
+type HotseatFocusMode =
+  | "handoff"
+  | "private_action"
+  | "private_merchant_free_develop"
+  | "round_settlement"
+  | "era_transition"
+  | "ended"
+  | null;
+
+function activeFocusMode(model: HotseatPrototypeModel): HotseatFocusMode {
+  if (model.handoff !== null) return "handoff";
+  if (model.private !== null) {
+    return model.private.mode === "action"
+      ? "private_action"
+      : "private_merchant_free_develop";
+  }
+  if (model.boundary?.kind === "round_settlement") return "round_settlement";
+  if (model.boundary?.kind === "era_transition") return "era_transition";
+  if (model.boundary?.kind === "ended") return "ended";
+  return null;
+}
+
 export function GameV2HotseatPrototype({
   model,
   onReveal,
@@ -76,6 +99,12 @@ export function GameV2HotseatPrototype({
   onResolveEra,
 }: GameV2HotseatPrototypeProps) {
   const game = model.public;
+  const focusMode = activeFocusMode(model);
+  const handoffRevealRef = useRef<HTMLButtonElement>(null);
+  const privateHeadingRef = useRef<HTMLHeadingElement>(null);
+  const roundSettlementHeadingRef = useRef<HTMLHeadingElement>(null);
+  const eraTransitionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const finalStandingsHeadingRef = useRef<HTMLHeadingElement>(null);
   const selectedCardId = model.private?.selectedCardId ?? null;
   const selectedScoutCardIds = model.private?.selectedScoutCardIds ?? [];
   const selectedDevelopPlan = model.private?.legal.develop.plans.find(
@@ -87,6 +116,22 @@ export function GameV2HotseatPrototype({
   const selectedRailNextPlan = model.private?.legal.railNetwork.nextPlans.find(
     (plan) => plan.id === model.private?.legal.railNetwork.selectedNextPlanId,
   ) ?? null;
+
+  useEffect(() => {
+    const target = focusMode === "handoff"
+      ? handoffRevealRef.current
+      : focusMode === "private_action" ||
+          focusMode === "private_merchant_free_develop"
+        ? privateHeadingRef.current
+        : focusMode === "round_settlement"
+          ? roundSettlementHeadingRef.current
+          : focusMode === "era_transition"
+            ? eraTransitionHeadingRef.current
+            : focusMode === "ended"
+              ? finalStandingsHeadingRef.current
+              : null;
+    target?.focus({ preventScroll: true });
+  }, [game.identity.revision, focusMode]);
 
   return (
     <div className="space-y-5">
@@ -164,7 +209,12 @@ export function GameV2HotseatPrototype({
           <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600 dark:text-neutral-300">
             No private hand, draft, or follow-up choices are visible. When everyone else is looking away, reveal the current player&apos;s view.
           </p>
-          <button autoFocus className={`${primaryButton} mt-4`} onClick={onReveal} type="button">
+          <button
+            className={`${primaryButton} mt-4`}
+            onClick={onReveal}
+            ref={handoffRevealRef}
+            type="button"
+          >
             <Emoji>👁️</Emoji> Reveal {model.handoff.nextSeat}&apos;s private view
           </button>
         </section>
@@ -174,7 +224,12 @@ export function GameV2HotseatPrototype({
         <section className={panel} aria-labelledby="round-settlement-title">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold" id="round-settlement-title">
+              <h2
+                className="text-xl font-bold"
+                id="round-settlement-title"
+                ref={roundSettlementHeadingRef}
+                tabIndex={-1}
+              >
                 <Emoji>💷</Emoji> Round complete
               </h2>
               <p className="mt-2 text-sm text-slate-600 dark:text-neutral-300">
@@ -354,8 +409,13 @@ export function GameV2HotseatPrototype({
       ) : null}
 
       {model.boundary?.kind === "era_transition" ? (
-        <section className={panel}>
-          <h2 className="text-xl font-bold"><Emoji>🏁</Emoji> Era complete</h2>
+        <section className={panel} aria-labelledby="era-transition-title">
+          <h2
+            className="text-xl font-bold"
+            id="era-transition-title"
+            ref={eraTransitionHeadingRef}
+            tabIndex={-1}
+          ><Emoji>🏁</Emoji> Era complete</h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-neutral-300">
             Score links and flipped industries, then continue to the next era or final standings.
           </p>
@@ -377,8 +437,13 @@ export function GameV2HotseatPrototype({
       ) : null}
 
       {model.boundary?.kind === "ended" ? (
-        <section className={panel}>
-          <h2 className="text-2xl font-bold"><Emoji>🏆</Emoji> Final standings</h2>
+        <section className={panel} aria-labelledby="final-standings-title">
+          <h2
+            className="text-2xl font-bold"
+            id="final-standings-title"
+            ref={finalStandingsHeadingRef}
+            tabIndex={-1}
+          ><Emoji>🏆</Emoji> Final standings</h2>
           <ol className="mt-3 grid gap-2 sm:grid-cols-2">
             {model.boundary.standings.map((standing) => (
               <li className={inset} key={standing.playerId}>
@@ -398,7 +463,12 @@ export function GameV2HotseatPrototype({
         <section className={panel} aria-labelledby="merchant-develop-title">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold" id="merchant-develop-title">
+              <h2
+                className="text-xl font-bold"
+                id="merchant-develop-title"
+                ref={privateHeadingRef}
+                tabIndex={-1}
+              >
                 <Emoji>🛒</Emoji> {model.private.seat}&apos;s free Develop
               </h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-neutral-300">
@@ -465,7 +535,12 @@ export function GameV2HotseatPrototype({
         <section className={panel} aria-labelledby="private-hand-title">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold" id="private-hand-title">
+              <h2
+                className="text-xl font-bold"
+                id="private-hand-title"
+                ref={privateHeadingRef}
+                tabIndex={-1}
+              >
                 <Emoji>🃏</Emoji> {model.private.seat}&apos;s private hand
               </h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-neutral-300">

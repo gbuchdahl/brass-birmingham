@@ -65,6 +65,10 @@ follow-up, its exact tile choice is also hidden behind the owning player's
 handoff and can be resolved in the UI. Round settlement is public: cash-covered
 players confirm payment, while cash-short players progressively choose exact
 owned industries to liquidate until the authoritative settlement is ready.
+Keyboard focus follows authoritative play: handoffs focus the Reveal control,
+revealed private views and public phase boundaries focus their headings, and
+draft-only card or selector changes do not steal focus. Press Enter on the
+focused Reveal control to open the current player's private view.
 
 ## Rules Data Workflow
 

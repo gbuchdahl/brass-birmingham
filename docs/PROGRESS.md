@@ -1,6 +1,6 @@
 # Development progress
 
-Last updated: 2026-08-06
+Last updated: 2026-08-07
 
 ## Where to look
 
@@ -84,6 +84,11 @@ deterministic rounds through both eras.
   revision-100 game with one exact Rail action, final standings, and WCAG A/AA
   scans at representative states. CI installs pinned Chromium and uploads the
   report on every run.
+- Revision-aware focus management driven only by authoritative revision and
+  active mode. Initial and restored handoffs focus Reveal, private reveals focus
+  their heading, accepted commands focus the next handoff or public boundary,
+  and round settlement, era transition, and final standings receive focus
+  without draft-only choices competing for it.
 - A two-step reset warning that snapshots the current game ID, revision,
   player count, seed, requested settings, and local-save context. Confirmation
   is one-shot; changed or malformed context fails closed, and cancel never
@@ -186,6 +191,10 @@ The production browser gate also completes a fresh 100-command two-era journey:
 era resolutions. It verifies the Rail receipt, one built link, spend-driven
 turn order, final standings, revision-100 autosave/reload, and zero axe WCAG
 A/AA violations at hidden, revealed, restored, and terminal checkpoints.
+The same gate asserts exact active elements through handoff, keyboard Enter
+reveal, private play, accepted-command handoff, every round boundary, both era
+boundaries, and terminal reload. Local draft clicks retain their natural focus
+because the coordinator is keyed only by revision and active mode.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
 clean. The verified checkpoint has 49 test files / 634 tests plus the production
@@ -199,11 +208,13 @@ Then open <http://localhost:3000/dev>.
 
 ## Next checkpoints
 
-1. Add revision-aware focus management for reveal, accepted commands, round
-   settlement, era transition, and final standings.
-2. Extend browser coverage across 3- and 4-player reset/handoff paths and the
-   progressive two-link Rail and liquidation branches.
-3. Run the final fresh-install gate: generated-data checks, lint, typecheck,
+1. Extend browser coverage across the progressive two-link Rail and liquidation
+   branches.
+2. Add keyboard coverage for Merchant free-Develop and reset-confirmation
+   cancel/confirm paths.
+3. Extend 3- and 4-player browser coverage beyond reset/handoff into full round
+   and era transitions.
+4. Run the final fresh-install gate: generated-data checks, lint, typecheck,
    unit tests, production build, and accessibility smoke.
 
 ## Goal and non-goals

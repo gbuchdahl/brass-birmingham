@@ -36,6 +36,9 @@ async function resetGame(page: Page, seed: string): Promise<void> {
   await expect(
     page.getByText("Saved revision 0 in this browser.", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("button", {
+    name: "Reveal Player 1's private view",
+  })).toBeFocused();
   await page.getByLabel("Deterministic seed").fill(seed);
   await page.getByRole("button", { name: "New / reset game" }).click();
   await expect(
@@ -54,6 +57,16 @@ async function resetGame(page: Page, seed: string): Promise<void> {
         .getItem("brass-birmingham:hotseat-session:v1")
         ?.includes(expectedSeed) ?? false, seed)
   ).toBe(true);
+  await page.reload();
+  await expect(
+    page.getByText(
+      "Restored revision 0. The hand is hidden for privacy.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(page.getByRole("button", {
+    name: "Reveal Player 1's private view",
+  })).toBeFocused();
 }
 
 test("reload never remounts a private hand or draft during hot-seat handoff", async ({
@@ -70,12 +83,16 @@ test("reload never remounts a private hand or draft during hot-seat handoff", as
   ).toHaveCount(0);
   await expectNoWcagViolations(page, "initial privacy-safe handoff");
 
-  await page.getByRole("button", {
+  const playerOneReveal = page.getByRole("button", {
     name: "Reveal Player 1's private view",
-  }).click();
-  await expect(
-    page.getByRole("heading", { name: "Player 1's private hand" }),
-  ).toBeVisible();
+  });
+  await expect(playerOneReveal).toBeFocused();
+  await page.keyboard.press("Enter");
+  const playerOnePrivateHeading = page.getByRole("heading", {
+    name: "Player 1's private hand",
+  });
+  await expect(playerOnePrivateHeading).toBeVisible();
+  await expect(playerOnePrivateHeading).toBeFocused();
   const actionCards = page.getByRole("button", {
     name: /^Use .* as the action card$/,
   });
@@ -83,6 +100,7 @@ test("reload never remounts a private hand or draft during hot-seat handoff", as
   const firstActionCard = actionCards.first();
   await firstActionCard.click();
   await expect(firstActionCard).toHaveAttribute("aria-pressed", "true");
+  await expect(firstActionCard).toBeFocused();
   await expectNoWcagViolations(page, "revealed private hand");
 
   await page.reload();
@@ -97,15 +115,16 @@ test("reload never remounts a private hand or draft during hot-seat handoff", as
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: /private hand$/ })).toHaveCount(0);
   await expect(actionCards).toHaveCount(0);
+  await expect(playerOneReveal).toBeFocused();
 
-  await page.getByRole("button", {
-    name: "Reveal Player 1's private view",
-  }).click();
+  await playerOneReveal.click();
+  await expect(playerOnePrivateHeading).toBeFocused();
   await expect(actionCards).toHaveCount(8);
   await expect(page.locator(
     'button[aria-label^="Use "][aria-label$=" as the action card"][aria-pressed="true"]',
   )).toHaveCount(0);
   await actionCards.first().click();
+  await expect(actionCards.first()).toBeFocused();
   await page.getByRole("button", { name: "Pass", exact: true }).click();
   await expectRevision(page, 1);
   await expect(
@@ -114,6 +133,10 @@ test("reload never remounts a private hand or draft during hot-seat handoff", as
   await expect(
     page.getByRole("heading", { name: "Pass the device to Player 2" }),
   ).toBeVisible();
+  const playerTwoReveal = page.getByRole("button", {
+    name: "Reveal Player 2's private view",
+  });
+  await expect(playerTwoReveal).toBeFocused();
   await expect(page.getByRole("heading", { name: /private hand$/ })).toHaveCount(0);
   await expect(actionCards).toHaveCount(0);
 
@@ -127,6 +150,7 @@ test("reload never remounts a private hand or draft during hot-seat handoff", as
   await expect(
     page.getByRole("heading", { name: "Pass the device to Player 2" }),
   ).toBeVisible();
+  await expect(playerTwoReveal).toBeFocused();
   await expect(page.getByRole("heading", { name: /private hand$/ })).toHaveCount(0);
   await expect(actionCards).toHaveCount(0);
   await expectNoWcagViolations(page, "restored Player 2 handoff");
@@ -153,13 +177,19 @@ test("completes and restores a two-era journey with one exact Rail action", asyn
       const reveal = page.getByRole("button", {
         name: /^Reveal Player [12]'s private view$/,
       });
-      if (await reveal.count() === 1) await reveal.click();
+      const privateHeading = page.getByRole("heading", { name: /private hand$/ });
+      if (await reveal.count() === 1) {
+        await expect(reveal).toBeFocused();
+        await reveal.click();
+      }
+      await expect(privateHeading).toBeFocused();
 
       const actionCard = page.getByRole("button", {
         name: /^Use .* as the action card$/,
       }).first();
       await expect(actionCard).toBeEnabled();
       await actionCard.click();
+      await expect(actionCard).toBeFocused();
 
       if (
         railNetworks === 0 &&
@@ -188,6 +218,9 @@ test("completes and restores a two-era journey with one exact Rail action", asyn
         passes += 1;
       }
     } else if (phase === "round_settlement") {
+      await expect(
+        page.getByRole("heading", { name: "Round complete" }),
+      ).toBeFocused();
       const settle = page.getByRole("button", {
         name: "Apply settlement and continue",
       });
@@ -195,6 +228,9 @@ test("completes and restores a two-era journey with one exact Rail action", asyn
       await settle.click();
       settlements += 1;
     } else if (phase === "era_transition") {
+      await expect(
+        page.getByRole("heading", { name: "Era complete" }),
+      ).toBeFocused();
       await page.getByRole("button", { name: "Score era and continue" }).click();
       eraResolutions += 1;
     } else {
@@ -219,6 +255,9 @@ test("completes and restores a two-era journey with one exact Rail action", asyn
   await expect(
     page.getByRole("heading", { name: "Final standings" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Final standings" }),
+  ).toBeFocused();
   const standings = page.getByRole("heading", { name: "Final standings" })
     .locator("..");
   await expect(standings.getByRole("listitem")).toHaveCount(2);
@@ -244,5 +283,8 @@ test("completes and restores a two-era journey with one exact Rail action", asyn
   await expect(
     page.getByRole("heading", { name: "Final standings" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Final standings" }),
+  ).toBeFocused();
   await expect(page.getByRole("heading", { name: /private hand$/ })).toHaveCount(0);
 });
