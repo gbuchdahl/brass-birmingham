@@ -307,6 +307,17 @@ export {
   type GameV2SellProjectedSale,
 } from "./game-v2/sell-legal";
 export {
+  getGameV2LiquidationLegalOptions,
+  type GameV2LiquidationAsset,
+  type GameV2LiquidationAuthorityPreview,
+  type GameV2LiquidationCoverage,
+  type GameV2LiquidationLegalDisabledReason,
+  type GameV2LiquidationLegalDisabledReasonCode,
+  type GameV2LiquidationLegalOptions,
+  type GameV2LiquidationNextChoice,
+  type GameV2SeatLiquidationProgress,
+} from "./game-v2/liquidation-legal";
+export {
   applyAcceptedActionV2,
   resolveCompletedRoundV2,
   type AcceptedActionEffectV2,

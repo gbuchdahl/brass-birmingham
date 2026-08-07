@@ -57,13 +57,17 @@ boundaries required to play deterministic rounds through both eras.
   Merchant free Develop, card-specific industry Build, and card-specific
   Develop plans are exact. Sell is exact through a bounded progressive selector
   whose every accepted prefix can stop as a complete action or append one exact
-  next sale. Build plans include board space, top tile, overbuild, materially
-  distinct coal/iron sources, market cost, production outcome, and total cost.
-  Develop plans include ordered physical top tiles, exact board and market iron,
-  price, provider depletion, and resulting inventory. Sell choices include the
+  next sale. Round liquidation is also exact and progressive, exposing only the
+  next owned positive-value asset for each negative-income seat until cash,
+  liquidation proceeds, or exhausted assets settle the shortfall. Build plans
+  include board space, top tile, overbuild, materially distinct coal/iron
+  sources, market cost, production outcome, and total cost. Develop plans
+  include ordered physical top tiles, exact board and market iron, price,
+  provider depletion, and resulting inventory. Sell choices include the
   product, Merchant, mandatory beer source, reward, income, and any pending free
-  Develop. Every emitted plan is accepted by the authoritative command reducer.
-  Rail Network, Sell, and liquidation remain explicitly incomplete in the UI.
+  Develop. Every complete plan is accepted by the authoritative command reducer
+  or round-settlement authority. Rail Network, Sell, and liquidation remain
+  explicitly incomplete in the UI.
 - Strict event/phase provenance validation for command receipts, round and era
   boundaries, Merchant follow-ups, Canal-to-Rail transition, and terminal Rail
   scoring.
@@ -108,6 +112,14 @@ next choices append one legal product/Merchant/beer combination. It preserves
 both material sale orders, deduplicates only byte-equivalent adapter outcomes,
 and projects Merchant rewards and pending Gloucester free Develop.
 
+Round settlement now has a bounded progressive liquidation contract. Missing
+negative-income seats remain unacknowledged, cash-covered seats explicitly
+choose `[]`, short seats append one owned positive-value industry at a time, and
+the selector stops immediately when the shortfall is covered or assets are
+exhausted. It previews cash and VP loss and returns a command map only after the
+authoritative settlement accepts every seat together; final Rail correctly
+skips income with `{}`.
+
 The browser-verified prototype can build a real level-1 Cannock coal mine for
 £5 and show its two coal cubes; Develop a level-1 Manufacturer and Cotton Mill
 for £4 of market iron, reducing £17 to £13 and advancing both public next-tile
@@ -116,7 +128,7 @@ link for £3; continue after reload without command-ID collisions; take a Loan;
 pay negative income from cash; settle into round 2; and reset to four players.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
-clean. The verified checkpoint has 45 test files / 589 tests plus the production
+clean. The verified checkpoint has 46 test files / 599 tests plus the production
 build. Start it with:
 
 ```bash
