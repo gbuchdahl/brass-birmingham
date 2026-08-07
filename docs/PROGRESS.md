@@ -94,6 +94,10 @@ deterministic rounds through both eras.
   the new public player count is exact, reload remains private, and Player 1's
   accepted Pass reaches a hidden Player 2 handoff. Reset warnings and restored
   handoffs have no serious or critical axe findings.
+- A replay-authoritative two-link Rail browser fixture built only through public
+  commands and the normal save serializer. The visible UI restores Rail round
+  2, promotes an exact first link, selects an ordered second link with market
+  coal and own beer, submits both, and restores the resulting private handoff.
 - A two-step reset warning that snapshots the current game ID, revision,
   player count, seed, requested settings, and local-save context. Confirmation
   is one-shot; changed or malformed context fails closed, and cancel never
@@ -203,6 +207,12 @@ because the coordinator is keyed only by revision and active mode.
 Additional 3- and 4-player browser cases verify two-step reset context, exact
 public player counts, initial and restored privacy, Player 1 reveal, accepted
 Pass progression, Player 2 handoff/reload, and serious/critical axe scans.
+A focused Rail browser case restores revision 55 from a public-command-built
+save, promotes Derby–Nottingham, appends Belper–Derby with sequential £1/£2
+market coal and own Derby beer, and submits revision 56. It verifies £32→£14,
+14→12 link tokens, market coal 13→11, built links 0→2, Brewery beer 2→1, the
+Player 2 handoff, removal of transient Rail drafts from the save, and identical
+privacy-safe reload state.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
 clean. The verified checkpoint has 49 test files / 634 tests plus the production
@@ -216,8 +226,7 @@ Then open <http://localhost:3000/dev>.
 
 ## Next checkpoints
 
-1. Extend browser coverage across the progressive two-link Rail and liquidation
-   branches.
+1. Extend browser coverage across the progressive liquidation branch.
 2. Add keyboard coverage for Merchant free-Develop and reset-confirmation
    cancel/confirm paths.
 3. Extend 3- and 4-player browser coverage beyond reset/handoff into full round
