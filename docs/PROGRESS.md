@@ -98,6 +98,11 @@ deterministic rounds through both eras.
   commands and the normal save serializer. The visible UI restores Rail round
   2, promotes an exact first link, selects an ordered second link with market
   coal and own beer, submits both, and restores the resulting private handoff.
+- A public-command Merchant browser fixture and keyboard-only boundary cases.
+  Reset cancel/confirm preserve focus, privacy, and storage semantics; a pending
+  free Develop stays hidden through handoff/reload, resolves from the revealed
+  choice, focuses the resulting round boundary, settles publicly, and reaches
+  the next private handoff. Representative states pass axe WCAG A/AA.
 - A two-step reset warning that snapshots the current game ID, revision,
   player count, seed, requested settings, and local-save context. Confirmation
   is one-shot; changed or malformed context fails closed, and cancel never
@@ -213,6 +218,11 @@ market coal and own Derby beer, and submits revision 56. It verifies £32→£14
 14→12 link tokens, market coal 13→11, built links 0→2, Brewery beer 2→1, the
 Player 2 handoff, removal of transient Rail drafts from the save, and identical
 privacy-safe reload state.
+Keyboard boundary cases cover reset warning cancel and confirm, plus a
+revision-7 Merchant free-Develop save constructed solely through accepted
+commands. They verify hidden/revealed focus and privacy, resolve the real
+selection, focus revision-8 Round complete, settle it from the keyboard, reach
+the revision-9 Player 2 handoff, and restore it privately after reload.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
 clean. The verified checkpoint has 49 test files / 634 tests plus the production
@@ -227,11 +237,9 @@ Then open <http://localhost:3000/dev>.
 ## Next checkpoints
 
 1. Extend browser coverage across the progressive liquidation branch.
-2. Add keyboard coverage for Merchant free-Develop and reset-confirmation
-   cancel/confirm paths.
-3. Extend 3- and 4-player browser coverage beyond reset/handoff into full round
+2. Extend 3- and 4-player browser coverage beyond reset/handoff into full round
    and era transitions.
-4. Run the final fresh-install gate: generated-data checks, lint, typecheck,
+3. Run the final fresh-install gate: generated-data checks, lint, typecheck,
    unit tests, production build, and accessibility smoke.
 
 ## Goal and non-goals
