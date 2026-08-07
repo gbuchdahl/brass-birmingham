@@ -6,8 +6,14 @@ import type { PlayableCardId } from "@/engine/cards-v2/types";
 import { GameV2HotseatPrototype } from "@/ui/GameV2HotseatPrototype";
 import {
   submitSelectedHotseatLiquidation,
+  submitSelectedHotseatNetwork,
   submitSelectedHotseatSell,
 } from "@/ui/hotseat-prototype-controller";
+import {
+  appendSelectedHotseatRailNetworkPlan,
+  clearHotseatRailNetworkDraft,
+  selectHotseatRailNetworkNextPlan,
+} from "@/ui/hotseat-rail-network-model";
 import {
   clearHotseatSessionStorage,
   loadHotseatSessionFromStorage,
@@ -43,7 +49,6 @@ import {
   selectedHotseatBuildCommand,
   selectedHotseatDevelopCommand,
   selectedHotseatCardId,
-  selectedHotseatNetworkCommand,
   selectedHotseatMerchantFreeDevelopCommand,
   toggleHotseatScoutCard,
   toHotseatPrototypeModel,
@@ -181,7 +186,12 @@ export default function DevPage() {
       ) return current;
       const withCard = setHotseatDraft(
         current,
-        selectHotseatActionCard(clearHotseatSellDraft(current.draft), cardId),
+        selectHotseatActionCard(
+          clearHotseatRailNetworkDraft(
+            clearHotseatSellDraft(current.draft),
+          ),
+          cardId,
+        ),
       );
       const nextPrivate = toHotseatPrototypeModel(
         toHotseatViewModel(withCard),
@@ -287,17 +297,51 @@ export default function DevPage() {
   }
 
   function submitNetwork(): void {
+    setSession(submitSelectedHotseatNetwork);
+  }
+
+  function selectRailNetworkPlan(planId: string): void {
     setSession((current) => {
       const privateModel = toHotseatPrototypeModel(
         toHotseatViewModel(current),
         current.state,
       ).private;
-      if (privateModel === null) return current;
-      const command = selectedHotseatNetworkCommand(privateModel);
-      return command === null
-        ? current
-        : submitHotseatCommand(current, command);
+      if (privateModel === null || current.state.era !== "rail") return current;
+      return setHotseatDraft(
+        current,
+        selectHotseatRailNetworkNextPlan(
+          current.draft,
+          planId,
+          privateModel.legal.railNetwork.nextPlans.map((plan) => plan.id),
+        ),
+      );
     });
+  }
+
+  function appendRailNetworkPlan(): void {
+    setSession((current) => {
+      const privateModel = toHotseatPrototypeModel(
+        toHotseatViewModel(current),
+        current.state,
+      ).private;
+      if (privateModel === null || current.state.era !== "rail") return current;
+      return setHotseatDraft(
+        current,
+        appendSelectedHotseatRailNetworkPlan(
+          current.draft,
+          privateModel.legal.railNetwork,
+        ),
+      );
+    });
+  }
+
+  function clearRailNetwork(): void {
+    setSession((current) =>
+      setHotseatDraft(
+        current,
+        clearHotseatRailNetworkDraft(current.draft),
+      )
+    );
   }
 
   function selectBuildPlan(planId: string): void {
@@ -566,9 +610,11 @@ export default function DevPage() {
         <GameV2HotseatPrototype
           model={model}
           onAcknowledgeLiquidation={acknowledgeLiquidation}
+          onAppendRailNetworkPlan={appendRailNetworkPlan}
           onAppendSellSale={appendSellSale}
           onBuild={submitBuild}
           onClearSell={clearSell}
+          onClearRailNetwork={clearRailNetwork}
           onClearLiquidation={clearLiquidation}
           onDevelop={submitDevelop}
           onHide={() => setSession(hideHotseatHand)}
@@ -590,6 +636,7 @@ export default function DevPage() {
           onSelectMerchantFreeDevelop={selectMerchantFreeDevelop}
           onSelectCard={selectCard}
           onSelectNetworkLink={selectNetworkLink}
+          onSelectRailNetworkPlan={selectRailNetworkPlan}
           onSelectSellNextOption={selectSellNextOption}
           onSettleRound={() => setSession(submitSelectedHotseatLiquidation)}
           onToggleScoutCard={toggleScoutCard}

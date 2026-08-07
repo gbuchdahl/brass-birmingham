@@ -13,8 +13,8 @@ Last updated: 2026-08-06
 The project is currently **engine-first**, with a deliberately plain but
 interactive hot-seat prototype at `/dev`. It supports privacy-safe device
 handoff, exact industry Build and Develop plans, Pass, Loan, Scout, exact Canal
-Network link selection, progressive exact Sell choices, exact Merchant
-free-Develop follow-ups, automatic cash-covered income settlement,
+and progressive Rail Network selection, progressive exact Sell choices, exact
+Merchant free-Develop follow-ups, automatic cash-covered income settlement,
 progressive public asset liquidation,
 corruption-safe local recovery, and the system boundaries required to play
 deterministic rounds through both eras.
@@ -47,8 +47,9 @@ deterministic rounds through both eras.
   revision, card-zone, phase, event, and byte-identical replay assertions.
 - An interactive `GameStateV2` hot-seat prototype at `/dev` with deterministic
   2-4 player reset controls, pass-device privacy, current-hand reveal/hide,
-  selector-backed industry Build, Develop, Sell, Pass, Loan, Scout, and Canal
-  Network actions, privacy-safe Merchant free-Develop resolution, typed errors,
+  selector-backed industry Build, Develop, Sell, Pass, Loan, Scout, Canal
+  Network, and Rail Network actions, privacy-safe Merchant free-Develop
+  resolution, typed errors,
   round/era Continue controls, public state summaries, visible built-industry
   boxes and next-tile inventories, recent event types, and final standings.
 - A pure hot-seat session controller with pass-device handoff/reveal privacy,
@@ -72,8 +73,9 @@ deterministic rounds through both eras.
   pending free Develop. Rail plans include ordered links, exact coal sources,
   sequential market prices, the optional second link's own beer, flips, and
   income. Every complete plan is accepted by the authoritative command reducer
-  or round-settlement authority. Liquidation is now playable in the public
-  round-settlement UI; Rail Network controls remain explicitly incomplete.
+  or round-settlement authority. Liquidation is playable in the public
+  round-settlement UI, and exact Rail Network plans are playable in the private
+  action UI.
 - Strict event/phase provenance validation for command receipts, round and era
   boundaries, Merchant follow-ups, Canal-to-Rail transition, and terminal Rail
   scoring.
@@ -127,6 +129,14 @@ second-link, second-coal, and own-beer extensions. The authoritative adapter
 still decides reach, nearest-coal priority, first-link-anywhere, sequential
 market prices, affordability, token use, flips, and income awards.
 
+The private hot-seat Rail control now projects those exact plans. A selected
+one-link plan may submit directly or be promoted to an accepted prefix that
+reveals only exact ordered two-link extensions. The UI shows each link, mine or
+market coal source and sequential price, required own beer, flips, income,
+total cost, money, tokens, and resulting market before the shared controller
+submits the reducer-ready command. Canal remains a separate exact branch, and
+stale or malformed Rail drafts recover without becoming commands.
+
 Round settlement now has a bounded progressive liquidation contract. Missing
 negative-income seats remain unacknowledged, cash-covered seats explicitly
 choose `[]`, short seats append one owned positive-value industry at a time, and
@@ -164,7 +174,7 @@ removed only those two industries, advanced the round, and restored the hidden
 revision-13 handoff after reload.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
-clean. The verified checkpoint has 47 test files / 618 tests plus the production
+clean. The verified checkpoint has 48 test files / 626 tests plus the production
 build. Start it with:
 
 ```bash
@@ -175,10 +185,9 @@ Then open <http://localhost:3000/dev>.
 
 ## Next checkpoints
 
-1. Expose the exact progressive Rail Network selector without weakening the
-   already exact Canal control.
-2. Add revision-aware focus management and a two-step reset confirmation.
-3. Run complete-game 2-4-player browser scenarios and the final fresh-install
+1. Add revision-aware focus management and wire the prepared two-step reset
+   confirmation into the hot-seat screen.
+2. Run complete-game 2-4-player browser scenarios and the final fresh-install
    gate: generated-data checks, lint, typecheck, unit tests, production build,
    and accessibility smoke.
 

@@ -8,6 +8,7 @@ type GameV2HotseatPrototypeProps = {
   readonly onSelectCard: (cardId: PlayableCardId) => void;
   readonly onToggleScoutCard: (cardId: PlayableCardId) => void;
   readonly onSelectNetworkLink: (linkId: string) => void;
+  readonly onSelectRailNetworkPlan: (planId: string) => void;
   readonly onSelectBuildPlan: (planId: string) => void;
   readonly onSelectDevelopPlan: (planId: string) => void;
   readonly onSelectSellNextOption: (optionId: string) => void;
@@ -16,6 +17,8 @@ type GameV2HotseatPrototypeProps = {
   readonly onLoan: () => void;
   readonly onScout: () => void;
   readonly onNetwork: () => void;
+  readonly onAppendRailNetworkPlan: () => void;
+  readonly onClearRailNetwork: () => void;
   readonly onBuild: () => void;
   readonly onDevelop: () => void;
   readonly onAppendSellSale: () => void;
@@ -49,6 +52,7 @@ export function GameV2HotseatPrototype({
   onSelectCard,
   onToggleScoutCard,
   onSelectNetworkLink,
+  onSelectRailNetworkPlan,
   onSelectBuildPlan,
   onSelectDevelopPlan,
   onSelectSellNextOption,
@@ -57,6 +61,8 @@ export function GameV2HotseatPrototype({
   onLoan,
   onScout,
   onNetwork,
+  onAppendRailNetworkPlan,
+  onClearRailNetwork,
   onBuild,
   onDevelop,
   onAppendSellSale,
@@ -78,6 +84,9 @@ export function GameV2HotseatPrototype({
   const selectedSellNextOption = model.private?.legal.sell.nextOptions.find(
     (option) => option.id === model.private?.selectedSellNextOptionId,
   ) ?? null;
+  const selectedRailNextPlan = model.private?.legal.railNetwork.nextPlans.find(
+    (plan) => plan.id === model.private?.legal.railNetwork.selectedNextPlanId,
+  ) ?? null;
 
   return (
     <div className="space-y-5">
@@ -89,7 +98,7 @@ export function GameV2HotseatPrototype({
                 HOT-SEAT ALPHA
               </span>
               <span className="rounded border border-slate-400 px-2 py-1 text-xs font-bold tracking-wide">
-                BUILD + DEVELOP + SELL + PASS + LOAN + SCOUT + CANAL NETWORK
+                BUILD + DEVELOP + SELL + PASS + LOAN + SCOUT + CANAL + RAIL NETWORK
               </span>
             </div>
             <h1 className="text-2xl font-bold">Brass: Birmingham playable prototype</h1>
@@ -740,9 +749,160 @@ export function GameV2HotseatPrototype({
 
           <fieldset className={`${inset} mt-4`}>
             <legend className="px-1 text-sm font-bold">
-              <Emoji>🛶</Emoji> Canal Network
+              {game.turn.era === "rail" ? (
+                <><Emoji>🚂</Emoji> Rail Network</>
+              ) : (
+                <><Emoji>🛶</Emoji> Canal Network</>
+              )}
             </legend>
-            {model.private.legal.network.availability === "exact" ? (
+            {game.turn.era === "rail" ? (
+              model.private.legal.railNetwork.availability === "exact" ? (
+                <div className="mt-2 space-y-3">
+                  {model.private.legal.railNetwork.currentPlan === null ? null : (
+                    <div className="rounded border border-emerald-400 bg-emerald-50 p-3 text-sm text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100">
+                      <p className="font-bold">First link ready</p>
+                      <p className="mt-1">
+                        {model.private.legal.railNetwork.currentPlan.links[0].endpointLabel}
+                        {" · "}
+                        {model.private.legal.railNetwork.currentPlan.coalSources[0].summary}
+                        {" · "}
+                        {model.private.legal.railNetwork.currentPlan.outcomeSummary}
+                      </p>
+                      <p className="mt-1 text-xs">
+                        Submit this one-link action now, or choose an exact second-link extension below.
+                      </p>
+                    </div>
+                  )}
+
+                  <label className="grid gap-1 text-sm font-semibold">
+                    {model.private.legal.railNetwork.currentPlan === null
+                      ? "Exact first-link plan"
+                      : "Optional exact second-link extension"}
+                    <select
+                      aria-label={model.private.legal.railNetwork.currentPlan === null
+                        ? "Rail first-link plan"
+                        : "Rail second-link extension"}
+                      className="rounded border border-slate-400 bg-white px-3 py-2 font-normal text-slate-950 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                      onChange={(event) =>
+                        onSelectRailNetworkPlan(event.target.value)}
+                      value={model.private.legal.railNetwork.selectedNextPlanId ?? ""}
+                    >
+                      <option value="">
+                        {model.private.legal.railNetwork.currentPlan === null
+                          ? "Choose one link and its coal source…"
+                          : "Keep one link, or choose a two-link plan…"}
+                      </option>
+                      {model.private.legal.railNetwork.nextPlans.map((plan) => (
+                        <option key={plan.id} value={plan.id}>
+                          {plan.links.map((link) =>
+                            `${link.order}. ${link.endpointLabel}`
+                          ).join(" then ")}
+                          {" · "}
+                          {plan.coalSources.map((source) => source.summary).join(" + ")}
+                          {plan.beerSource === null
+                            ? ""
+                            : ` + ${plan.beerSource.summary}`}
+                          {" · "}{plan.outcomeSummary}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {selectedRailNextPlan === null ? null : (
+                    <div className="grid gap-2 rounded border border-slate-300 bg-white p-3 text-sm dark:border-neutral-700 dark:bg-neutral-950 sm:grid-cols-2">
+                      <div>
+                        <p className="font-bold">Selected route</p>
+                        <ol className="mt-1 list-inside list-decimal">
+                          {selectedRailNextPlan.links.map((link) => (
+                            <li key={`${link.order}:${link.linkId}`}>
+                              {link.endpointLabel}
+                            </li>
+                          ))}
+                        </ol>
+                        <p className="mt-1">
+                          Coal: {selectedRailNextPlan.coalSources.map((source) =>
+                            source.summary
+                          ).join("; ")}
+                        </p>
+                        <p>
+                          Beer: {selectedRailNextPlan.beerSource?.summary ??
+                            "none for one link"}
+                        </p>
+                      </div>
+                      <dl className="grid grid-cols-2 gap-1">
+                        <dt>Total cost</dt>
+                        <dd className="font-semibold">£{selectedRailNextPlan.costs.total}</dd>
+                        <dt>Money after</dt>
+                        <dd className="font-semibold">£{selectedRailNextPlan.playerResult.money}</dd>
+                        <dt>Link tokens after</dt>
+                        <dd className="font-semibold">{selectedRailNextPlan.playerResult.linkTokensRemaining}</dd>
+                        <dt>Market coal after</dt>
+                        <dd className="font-semibold">{selectedRailNextPlan.marketResult.coalAfter}</dd>
+                        <dt>Industries flipped</dt>
+                        <dd className="font-semibold">{selectedRailNextPlan.flippedIndustryIds.length}</dd>
+                        <dt>Income awards</dt>
+                        <dd className="font-semibold">{selectedRailNextPlan.incomeAwards.length}</dd>
+                      </dl>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    {model.private.legal.railNetwork.currentPlan === null ? (
+                      <button
+                        className={secondaryButton}
+                        disabled={selectedRailNextPlan?.linkCount !== 1}
+                        onClick={onAppendRailNetworkPlan}
+                        type="button"
+                      >
+                        <Emoji>➕</Emoji> Keep first link and consider a second
+                      </button>
+                    ) : null}
+                    <button
+                      className={primaryButton}
+                      disabled={model.private.legal.railNetwork.submissionPlan === null}
+                      onClick={onNetwork}
+                      type="button"
+                    >
+                      <Emoji>🚂</Emoji>{" "}
+                      {model.private.legal.railNetwork.submissionPlan === null
+                        ? "Build selected Rail plan"
+                        : `Build ${model.private.legal.railNetwork.submissionPlan.linkCount} Rail link${model.private.legal.railNetwork.submissionPlan.linkCount === 1 ? "" : "s"}`}
+                    </button>
+                    <button
+                      className={secondaryButton}
+                      onClick={onClearRailNetwork}
+                      type="button"
+                    >
+                      Clear Rail plan
+                    </button>
+                  </div>
+                  <p aria-live="polite" className="text-xs text-slate-600 dark:text-neutral-300">
+                    {model.private.legal.railNetwork.submissionPlan === null
+                      ? "Choose an exact one-link plan. You may submit it directly or inspect legal two-link extensions."
+                      : `Ready: ${model.private.legal.railNetwork.submissionPlan.outcomeSummary}. The authoritative engine will recheck it.`}
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-2 text-sm">
+                  <p>
+                    <strong>Rail Network unavailable:</strong>{" "}
+                    {model.private.legal.railNetwork.reason?.message ??
+                      "No exact Rail Network choices are available."}
+                  </p>
+                  {model.private.legal.railNetwork.savedPrefixStatus === "empty"
+                    ? null
+                    : (
+                      <button
+                        className={`${secondaryButton} mt-2`}
+                        onClick={onClearRailNetwork}
+                        type="button"
+                      >
+                        Clear stale Rail plan
+                      </button>
+                    )}
+                </div>
+              )
+            ) : model.private.legal.network.availability === "exact" ? (
               <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                 <label className="grid gap-1 text-sm font-semibold">
                   Link to build
@@ -771,24 +931,21 @@ export function GameV2HotseatPrototype({
               </div>
             ) : (
               <p className="mt-2 text-sm">
-                <strong>
-                  {model.private.legal.network.availability === "attemptable"
-                    ? "Rail Network not yet enumerated:"
-                    : "Network unavailable:"}
-                </strong>{" "}
+                <strong>Canal Network unavailable:</strong>{" "}
                 {model.private.legal.network.reason?.message ??
-                  "No exact Network choices are available."}
+                  "No exact Canal Network choices are available."}
               </p>
             )}
-            {model.private.legal.network.availability === "exact" ? (
-              <p aria-live="polite" className="mt-2 text-xs text-slate-600 dark:text-neutral-300">
-                {!model.private.legal.network.selectedCardIsLegal
-                  ? "Choose a selector-approved action card from your hand."
-                  : model.private.selectedNetworkLinkId === null
-                    ? "Choose one reachable link. Canal Network costs £3."
-                    : "Canal Network selection ready."}
-              </p>
-            ) : null}
+            {game.turn.era === "canal" &&
+                model.private.legal.network.availability === "exact" ? (
+                  <p aria-live="polite" className="mt-2 text-xs text-slate-600 dark:text-neutral-300">
+                    {!model.private.legal.network.selectedCardIsLegal
+                      ? "Choose a selector-approved action card from your hand."
+                      : model.private.selectedNetworkLinkId === null
+                        ? "Choose one reachable link. Canal Network costs £3."
+                        : "Canal Network selection ready."}
+                  </p>
+                ) : null}
           </fieldset>
 
           <div aria-live="polite" className="mt-4 space-y-1 text-sm">

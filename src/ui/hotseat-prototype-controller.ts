@@ -5,9 +5,26 @@ import {
   type HotseatSession,
 } from "@/ui/hotseat-session";
 import {
+  selectedHotseatNetworkCommand,
   selectedHotseatSellCommand,
   toHotseatPrototypeModel,
 } from "@/ui/hotseat-prototype-model";
+import { selectedHotseatRailNetworkCommand } from "@/ui/hotseat-rail-network-model";
+
+/** Submits the exact Canal or Rail plan selected for the current era. */
+export function submitSelectedHotseatNetwork(
+  session: HotseatSession,
+): HotseatSession {
+  const privateModel = toHotseatPrototypeModel(
+    toHotseatViewModel(session),
+    session.state,
+  ).private;
+  if (privateModel === null) return session;
+  const command = session.state.era === "rail"
+    ? selectedHotseatRailNetworkCommand(privateModel.legal.railNetwork)
+    : selectedHotseatNetworkCommand(privateModel);
+  return command === null ? session : submitHotseatCommand(session, command);
+}
 
 /**
  * Submits the exact progressive Sell currently selected in a revealed session.

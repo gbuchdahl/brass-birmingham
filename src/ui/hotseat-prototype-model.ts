@@ -39,6 +39,10 @@ import type {
   HotseatPublicModel,
   HotseatViewModel,
 } from "@/ui/hotseat-session";
+import {
+  toHotseatRailNetworkModel,
+  type HotseatRailNetworkModel,
+} from "@/ui/hotseat-rail-network-model";
 
 export type HotseatSimpleCardAction = Extract<
   GameV2PlayerCommand["type"],
@@ -225,6 +229,8 @@ export type HotseatPrototypePrivateModel = {
       readonly links: readonly HotseatPrototypeNetworkLink[];
       readonly reason: GameV2LegalityDisabledReason | null;
     };
+    /** Exact Rail-only flow; Canal remains in `network` above. */
+    readonly railNetwork: HotseatRailNetworkModel;
     readonly build: {
       readonly availability: "exact" | "disabled";
       readonly selectionIsLegal: boolean;
@@ -1188,6 +1194,12 @@ export function toHotseatPrototypeModel(
         );
         const selectedNetworkCardIsLegal = selectedCardId !== null &&
           options.network.selectableCardIds.includes(selectedCardId);
+        const railNetwork = toHotseatRailNetworkModel(
+          state,
+          privateView.seat,
+          selectedCardId,
+          privateView.draft,
+        );
         const buildOptions = getGameV2BuildLegalOptions(
           state,
           privateView.seat,
@@ -1380,6 +1392,7 @@ export function toHotseatPrototypeModel(
               links: networkLinks,
               reason: options.network.reason,
             },
+            railNetwork,
             build: {
               availability: buildOptions.availability,
               selectionIsLegal: buildOptions.availability === "exact" &&
