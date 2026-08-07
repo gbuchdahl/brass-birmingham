@@ -33,6 +33,17 @@ pnpm check
 For a faster gate that omits the production build, run `pnpm verify`. Generated
 rules artifacts are checked for staleness as part of both commands.
 
+Run the production-browser hot-seat and accessibility gate with:
+
+```bash
+pnpm exec playwright install chromium
+pnpm test:e2e
+```
+
+It builds and serves the production app, checks privacy-safe handoffs and
+reloads, completes a two-era game with an exact Rail action, and runs axe WCAG
+A/AA scans at representative public and private states.
+
 The `/dev` route is an intentionally plain hot-seat walking skeleton backed by
 the authoritative `GameStateV2` command reducer. Pass the device, reveal only
 the current player's hand, and use selector-backed industry Build, Develop,

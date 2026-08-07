@@ -79,6 +79,11 @@ deterministic rounds through both eras.
 - Strict event/phase provenance validation for command receipts, round and era
   boundaries, Merchant follow-ups, Canal-to-Rail transition, and terminal Rail
   scoring.
+- A production-server Playwright/axe gate covering hidden and revealed privacy,
+  draft removal and handoff restoration after reload, a complete two-era
+  revision-100 game with one exact Rail action, final standings, and WCAG A/AA
+  scans at representative states. CI installs pinned Chromium and uploads the
+  report on every run.
 - Correct no-board-presence exceptions for a player's first Industry-card Build
   and first Network link.
 
@@ -172,6 +177,11 @@ liquidating the £2 Brewery followed by the £6 Cotton Mill. The UI held submiss
 while £1 remained, applied the exact ordered assets once covered, left £5 cash,
 removed only those two industries, advanced the round, and restored the hidden
 revision-13 handoff after reload.
+The production browser gate also completes a fresh 100-command two-era journey:
+77 Pass actions, one exact Rail Network action, 20 round settlements, and two
+era resolutions. It verifies the Rail receipt, one built link, spend-driven
+turn order, final standings, revision-100 autosave/reload, and zero axe WCAG
+A/AA violations at hidden, revealed, restored, and terminal checkpoints.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
 clean. The verified checkpoint has 48 test files / 626 tests plus the production
@@ -187,9 +197,10 @@ Then open <http://localhost:3000/dev>.
 
 1. Add revision-aware focus management and wire the prepared two-step reset
    confirmation into the hot-seat screen.
-2. Run complete-game 2-4-player browser scenarios and the final fresh-install
-   gate: generated-data checks, lint, typecheck, unit tests, production build,
-   and accessibility smoke.
+2. Extend browser coverage across 3- and 4-player reset/handoff paths and the
+   progressive two-link Rail and liquidation branches.
+3. Run the final fresh-install gate: generated-data checks, lint, typecheck,
+   unit tests, production build, and accessibility smoke.
 
 ## Goal and non-goals
 

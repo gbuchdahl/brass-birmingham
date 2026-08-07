@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "rules:generate:ruleset": "node scripts/rules/build-ruleset-data.mjs",
     "rules:generate:cards": "node scripts/rules/build-card-data.mjs",
     "rules:generate:industry": "node scripts/rules/build-industry-data.mjs",
@@ -43,7 +44,9 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24",
     "@types/react": "^19",
