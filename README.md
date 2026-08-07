@@ -44,7 +44,9 @@ It builds and serves the production app, checks privacy-safe handoffs and
 reloads, completes a two-era game with an exact Rail action, and runs axe WCAG
 A/AA scans at representative public and private states. It also exercises
 keyboard focus, reset cancel/confirm, and a private Merchant free-Develop
-handoff through the following public settlement.
+handoff through the following public settlement. A replay-authoritative
+cash-short fixture also proves the progressive public liquidation controls and
+draft-free reload.
 
 The `/dev` route is an intentionally plain hot-seat walking skeleton backed by
 the authoritative `GameStateV2` command reducer. Pass the device, reveal only

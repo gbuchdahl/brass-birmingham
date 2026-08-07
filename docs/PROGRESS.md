@@ -103,6 +103,10 @@ deterministic rounds through both eras.
   free Develop stays hidden through handoff/reload, resolves from the revealed
   choice, focuses the resulting round boundary, settles publicly, and reaches
   the next private handoff. Representative states pass axe WCAG A/AA.
+- A replay-authoritative cash-short liquidation browser fixture. It reaches the
+  public boundary through exact commands, proves that a £2 asset leaves the £3
+  bill unready, appends the exact £6 second asset, submits the ordered pair, and
+  restores only the surviving industry and privacy-safe next handoff.
 - A two-step reset warning that snapshots the current game ID, revision,
   player count, seed, requested settings, and local-save context. Confirmation
   is one-shot; changed or malformed context fails closed, and cancel never
@@ -200,6 +204,12 @@ liquidating the £2 Brewery followed by the £6 Cotton Mill. The UI held submiss
 while £1 remained, applied the exact ordered assets once covered, left £5 cash,
 removed only those two industries, advanced the round, and restored the hidden
 revision-13 handoff after reload.
+That path is now a reproducible production-browser case built entirely through
+public commands. It asserts revision 12/round 3/£0 cash, the £3→£1 shortfall,
+disabled submission after the £2 Stone Brewery, ordered £8 proceeds after the
+£6 Worcester Cotton Mill, £5 final cash, zero VP loss/unpaid amount, removal of
+only those two assets, the surviving Stafford Pottery, one exact settlement
+command, draft-free autosave, and the hidden revision-13 Player 2 reload.
 The production browser gate also completes a fresh 100-command two-era journey:
 77 Pass actions, one exact Rail Network action, 20 round settlements, and two
 era resolutions. It verifies the Rail receipt, one built link, spend-driven
@@ -236,11 +246,11 @@ Then open <http://localhost:3000/dev>.
 
 ## Next checkpoints
 
-1. Extend browser coverage across the progressive liquidation branch.
-2. Extend 3- and 4-player browser coverage beyond reset/handoff into full round
-   and era transitions.
-3. Run the final fresh-install gate: generated-data checks, lint, typecheck,
-   unit tests, production build, and accessibility smoke.
+1. Replace the stale legacy milestone notes in `agents.md` with the current
+   architecture, verification, branch, and handoff guidance.
+2. Run the final fresh-install gate: frozen dependency install, generated-data
+   checks, lint, typecheck, unit tests, production build, and browser/
+   accessibility coverage.
 
 ## Goal and non-goals
 
