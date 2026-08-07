@@ -89,6 +89,11 @@ deterministic rounds through both eras.
   their heading, accepted commands focus the next handoff or public boundary,
   and round settlement, era transition, and final standings receive focus
   without draft-only choices competing for it.
+- Parameterized 3- and 4-player production-browser reset and handoff coverage:
+  the warning leaves the current 2-player game authoritative until confirmed,
+  the new public player count is exact, reload remains private, and Player 1's
+  accepted Pass reaches a hidden Player 2 handoff. Reset warnings and restored
+  handoffs have no serious or critical axe findings.
 - A two-step reset warning that snapshots the current game ID, revision,
   player count, seed, requested settings, and local-save context. Confirmation
   is one-shot; changed or malformed context fails closed, and cancel never
@@ -195,6 +200,9 @@ The same gate asserts exact active elements through handoff, keyboard Enter
 reveal, private play, accepted-command handoff, every round boundary, both era
 boundaries, and terminal reload. Local draft clicks retain their natural focus
 because the coordinator is keyed only by revision and active mode.
+Additional 3- and 4-player browser cases verify two-step reset context, exact
+public player counts, initial and restored privacy, Player 1 reveal, accepted
+Pass progression, Player 2 handoff/reload, and serious/critical axe scans.
 Reload restores the exact revision, market, and inventory while hiding the
 current hand before any private state is mounted. Browser console output was
 clean. The verified checkpoint has 49 test files / 634 tests plus the production
