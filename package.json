@@ -3,25 +3,52 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "10.34.5"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "rules:generate:ruleset": "node scripts/rules/build-ruleset-data.mjs",
+    "rules:generate:cards": "node scripts/rules/build-card-data.mjs",
     "rules:generate:industry": "node scripts/rules/build-industry-data.mjs",
+    "rules:generate:industry-v2": "node scripts/rules/build-industry-tile-data.mjs",
     "rules:generate:board": "node scripts/rules/build-board-topology.mjs",
-    "rules:generate": "pnpm rules:generate:industry && pnpm rules:generate:board"
+    "rules:generate:board-v2": "node scripts/rules/build-board-v2-data.mjs",
+    "rules:generate:income": "node scripts/rules/build-income-track-data.mjs",
+    "rules:generate:merchants": "node scripts/rules/build-merchant-tile-data.mjs",
+    "rules:generate": "pnpm rules:generate:ruleset && pnpm rules:generate:cards && pnpm rules:generate:industry && pnpm rules:generate:industry-v2 && pnpm rules:generate:board && pnpm rules:generate:board-v2 && pnpm rules:generate:income && pnpm rules:generate:merchants",
+    "rules:check:ruleset": "node scripts/rules/build-ruleset-data.mjs --check",
+    "rules:check:cards": "node scripts/rules/build-card-data.mjs --check",
+    "rules:check:industry": "node scripts/rules/build-industry-data.mjs --check",
+    "rules:check:industry-v2": "node scripts/rules/build-industry-tile-data.mjs --check",
+    "rules:check:board": "node scripts/rules/build-board-topology.mjs --check",
+    "rules:check:board-v2": "node scripts/rules/build-board-v2-data.mjs --check",
+    "rules:check:income": "node scripts/rules/build-income-track-data.mjs --check",
+    "rules:check:merchants": "node scripts/rules/build-merchant-tile-data.mjs --check",
+    "rules:check": "pnpm rules:check:ruleset && pnpm rules:check:cards && pnpm rules:check:industry && pnpm rules:check:industry-v2 && pnpm rules:check:board && pnpm rules:check:board-v2 && pnpm rules:check:income && pnpm rules:check:merchants",
+    "verify": "pnpm rules:check && pnpm lint && pnpm typecheck && pnpm test",
+    "check": "pnpm verify && pnpm build"
   },
   "dependencies": {
     "next": "15.5.3",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "vitest": "^3.2.4"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^3.2.4",
@@ -29,6 +56,7 @@
     "eslint-config-next": "15.5.3",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "vitest": "^3.2.4",
     "yaml": "^2.8.2"
   }
 }

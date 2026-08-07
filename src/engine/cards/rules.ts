@@ -2,6 +2,9 @@ import type { GameState, PlayerId } from "../types";
 import type { Card, CardId } from "./types";
 
 export function canPlayCard(_state: GameState, _player: PlayerId, _cardId: CardId): boolean {
+  void _state;
+  void _player;
+  void _cardId;
   return true;
 }
 

@@ -1,0 +1,16 @@
+schema_version: 1
+id: brass-birmingham
+version: 2018-standard-v1
+sources:
+  official-rulebook:
+    role: primary
+    url: https://cdn.shopify.com/s/files/1/0246/2190/8043/files/Brass-Birmingham-Rulebook.pdf?v=1741712309
+  rulespal-rulebook:
+    role: accessible-transcription
+    url: https://www.rulespal.com/brass-birmingham/rulebook
+  order-of-gamers-summary:
+    role: secondary-summary
+    url: https://www.orderofgamers.com/downloads/BrassBirmingham_v1.2.pdf
+  board-reference:
+    role: visual-reference
+    url: https://boardgamegeek.com/image/3733951/brass-birmingham

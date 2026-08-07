@@ -1,1 +1,5 @@
-export { default } from "./(site)/page";
+import { redirect } from "next/navigation";
+
+export default function Home() {
+  redirect("/dev");
+}

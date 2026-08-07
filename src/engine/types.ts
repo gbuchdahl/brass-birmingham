@@ -64,6 +64,12 @@ export type MarketState = {
 };
 
 export type GameState = {
+  schemaVersion: 1;
+  ruleset: {
+    id: string;
+    version: string;
+  };
+  revision: number;
   id: string;
   seed: string;
   phase: EraKind;

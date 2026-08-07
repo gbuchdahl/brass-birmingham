@@ -5,6 +5,7 @@ import { parse } from "yaml";
 const ROOT = process.cwd();
 const INPUT = path.join(ROOT, "docs", "rules-data", "industry-values.yaml");
 const OUTPUT = path.join(ROOT, "src", "engine", "rules", "generated", "industry-values.ts");
+const CHECK = process.argv.includes("--check");
 
 function assertInteger(value, label) {
   if (typeof value !== "number" || !Number.isInteger(value)) {
@@ -56,7 +57,18 @@ async function main() {
     }
   }
 
-  const generated = `/* eslint-disable */\n// AUTO-GENERATED FILE. DO NOT EDIT DIRECTLY.\n// Source: docs/rules-data/industry-values.yaml\n\nexport const INDUSTRY_LEVEL_DATA = ${JSON.stringify(output, null, 2)} as const;\n`;
+  const generated = `// AUTO-GENERATED FILE. DO NOT EDIT DIRECTLY.\n// Source: docs/rules-data/industry-values.yaml\n\nexport const INDUSTRY_LEVEL_DATA = ${JSON.stringify(output, null, 2)} as const;\n`;
+
+  if (CHECK) {
+    const current = await fs.readFile(OUTPUT, "utf8").catch(() => "");
+    if (current !== generated) {
+      throw new Error(
+        `${path.relative(ROOT, OUTPUT)} is stale. Run pnpm rules:generate:industry.`,
+      );
+    }
+    console.log(`Verified ${path.relative(ROOT, OUTPUT)}`);
+    return;
+  }
 
   await fs.mkdir(path.dirname(OUTPUT), { recursive: true });
   await fs.writeFile(OUTPUT, generated, "utf8");

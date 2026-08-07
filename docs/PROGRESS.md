@@ -1,0 +1,289 @@
+# Development progress
+
+Last updated: 2026-08-07
+
+## Where to look
+
+- Active development branch: `agent/engine-alpha`
+- Draft pull request: <https://github.com/gbuchdahl/brass-birmingham/pull/2>
+- Latest verified checkpoint: deterministic local hot-seat milestone complete
+  (fresh isolated gate passed 2026-08-07)
+- Full local verification: `pnpm check`
+
+The completed milestone is **engine-first**, with a deliberately plain but
+interactive hot-seat prototype at `/dev`. It supports privacy-safe device
+handoff, exact industry Build and Develop plans, Pass, Loan, Scout, exact Canal
+and progressive Rail Network selection, progressive exact Sell choices, exact
+Merchant free-Develop follow-ups, automatic cash-covered income settlement,
+progressive public asset liquidation,
+corruption-safe local recovery, and the system boundaries required to play
+deterministic rounds through both eras.
+
+## Pushed and working
+
+- Generated, reviewable rules data for the ruleset, cards, board, industry
+  tiles, income track, and merchant tiles.
+- Deterministic setup for 2-4 players, including player inventories, card
+  zones, merchants, resource markets, and serializable random state.
+- Canal and Rail era card setup and redealing.
+- Atomic rule kernels for all seven player actions: Build, Network, Develop,
+  Sell, Loan, Scout, and Pass.
+- Coal, iron, beer, market, industry-inventory, income, and round-order rules.
+- Canal/Rail scoring and era-transition helpers, including final ranking.
+- Composite `GameStateV2` validation and strict versioned serialization.
+- Explicit authoritative progress for action, Merchant follow-up, round
+  settlement, era transition, and terminal phases; persisted schema is now v3.
+- Immutable adapters connecting all seven action kernels to `GameStateV2`.
+- A unified versioned command reducer with optimistic revisions, unique command
+  IDs, typed source errors, exact-state rejection, and deterministic replay.
+- Persisted Gloucester free-Develop resolution that survives save/reload and
+  advances the original Sell exactly once.
+- Turn advancement, card refill, round spending/order, income settlement,
+  explicit liquidation, and phase-boundary guards.
+- Settled Canal-to-Rail transition and terminal Rail scoring, including
+  replay-safe boundary provenance and protection against repeated scoring.
+- Deterministic command/replay coverage for the earlier engine slice, including
+  complete two-era all-Pass games at 2, 3, and 4 players with exact command,
+  revision, card-zone, phase, event, and byte-identical replay assertions.
+- An interactive `GameStateV2` hot-seat prototype at `/dev` with deterministic
+  2-4 player reset controls, pass-device privacy, current-hand reveal/hide,
+  selector-backed industry Build, Develop, Sell, Pass, Loan, Scout, Canal
+  Network, and Rail Network actions, privacy-safe Merchant free-Develop
+  resolution, typed errors,
+  round/era Continue controls, public state summaries, visible built-industry
+  boxes and next-tile inventories, recent event types, and final standings.
+- A pure hot-seat session controller with pass-device handoff/reveal privacy,
+  public/private projections, deterministic command history, draft/error
+  handling, and unit coverage.
+- A corruption-checked local save format containing a replay origin, accepted
+  command journal, collision-safe command ordinal, and byte-verified head state.
+  Invalid saves fail closed and require explicit user-confirmed replacement.
+- Fail-closed progressive legal selectors. Pass, Loan, Scout, Canal Network,
+  Merchant free Develop, card-specific industry Build, and card-specific
+  Develop plans are exact. Sell and Rail Network are exact through bounded
+  progressive selectors whose accepted prefixes can be submitted immediately
+  or extended by one exact next decision. Round liquidation is also exact and
+  progressive, exposing only the next owned positive-value asset for each
+  negative-income seat until cash, liquidation proceeds, or exhausted assets
+  settle the shortfall. Build plans include board space, top tile, overbuild,
+  materially distinct coal/iron sources, market cost, production outcome, and
+  total cost. Develop plans include ordered physical top tiles, exact board and
+  market iron, price, provider depletion, and resulting inventory. Sell choices
+  include the product, Merchant, mandatory beer source, reward, income, and any
+  pending free Develop. Rail plans include ordered links, exact coal sources,
+  sequential market prices, the optional second link's own beer, flips, and
+  income. Every complete plan is accepted by the authoritative command reducer
+  or round-settlement authority. Liquidation is playable in the public
+  round-settlement UI, and exact Rail Network plans are playable in the private
+  action UI.
+- Strict event/phase provenance validation for command receipts, round and era
+  boundaries, Merchant follow-ups, Canal-to-Rail transition, and terminal Rail
+  scoring.
+- A production-server Playwright/axe gate covering hidden and revealed privacy,
+  draft removal and handoff restoration after reload, a complete two-era
+  revision-100 game with one exact Rail action, final standings, and WCAG A/AA
+  scans at representative states. CI installs pinned Chromium and uploads the
+  report on every run.
+- Revision-aware focus management driven only by authoritative revision and
+  active mode. Initial and restored handoffs focus Reveal, private reveals focus
+  their heading, accepted commands focus the next handoff or public boundary,
+  and round settlement, era transition, and final standings receive focus
+  without draft-only choices competing for it.
+- Parameterized 3- and 4-player production-browser reset and handoff coverage:
+  the warning leaves the current 2-player game authoritative until confirmed,
+  the new public player count is exact, reload remains private, and Player 1's
+  accepted Pass reaches a hidden Player 2 handoff. Reset warnings and restored
+  handoffs have no serious or critical axe findings.
+- A replay-authoritative two-link Rail browser fixture built only through public
+  commands and the normal save serializer. The visible UI restores Rail round
+  2, promotes an exact first link, selects an ordered second link with market
+  coal and own beer, submits both, and restores the resulting private handoff.
+- A public-command Merchant browser fixture and keyboard-only boundary cases.
+  Reset cancel/confirm preserve focus, privacy, and storage semantics; a pending
+  free Develop stays hidden through handoff/reload, resolves from the revealed
+  choice, focuses the resulting round boundary, settles publicly, and reaches
+  the next private handoff. Representative states pass axe WCAG A/AA.
+- A replay-authoritative cash-short liquidation browser fixture. It reaches the
+  public boundary through exact commands, proves that a £2 asset leaves the £3
+  bill unready, appends the exact £6 second asset, submits the ordered pair, and
+  restores only the surviving industry and privacy-safe next handoff.
+- A two-step reset warning that snapshots the current game ID, revision,
+  player count, seed, requested settings, and local-save context. Confirmation
+  is one-shot; changed or malformed context fails closed, and cancel never
+  replaces the current game.
+- A current `agents.md` handoff covering the real GameStateV2 architecture,
+  branch/PR, exact selector and privacy contracts, rules-data workflow,
+  verification commands/counts, important rule checkpoints, and only genuine
+  non-blocking follow-ups. The obsolete M0–M4 skeleton notes are retired.
+- A final isolated-worktree completion gate at implementation commit `3d2feaf`:
+  pinned toolchain, frozen install of 412 packages, generated-data checks,
+  ESLint, TypeScript, 49/49 Vitest files and 634/634 tests, production build,
+  and 9/9 Playwright/axe scenarios all passed. The fresh checkout remained
+  git-clean.
+- Correct no-board-presence exceptions for a player's first Industry-card Build
+  and first Network link.
+
+The test suite is the best current demonstration of behavior. Start with:
+
+```bash
+pnpm test
+```
+
+Useful entry points include:
+
+- `src/engine/game-v2/state.ts`
+- `src/engine/game-v2/serialization.ts`
+- `src/engine/actions/`
+- `src/tests/engine/`
+- `docs/rules-data/`
+
+## Current stopping point
+
+Every accepted command advances revision once, rejections preserve exact state
+identity, a real Gloucester Sell can serialize while pending and resume safely,
+and the hot-seat controller never exposes opponent card identities through its
+public or handoff models. A pending Merchant free-Develop choice now returns to
+a handoff, reveals only to the affected player, accepts an exact top-tile choice
+(or the rules-required empty skip), and completes its parent Sell exactly once.
+It is now reached through ordinary browser play: the Sell control appends one
+exact product/Merchant/mandatory-beer decision at a time, allows any nonempty
+accepted prefix to submit, clears stale drafts, and immediately hides a pending
+Gloucester choice behind a handoff.
+
+The engine also exposes exact, reducer-checked Develop plans for a selected
+card, including one- or two-tile removal, mandatory board iron before market
+iron, exact market prices, and provider flips. The selector is bounded and has
+a dense-board regression. Its hot-seat control shows ordered tile removals,
+board-versus-market iron, exact cost, and the resulting public next-tile stacks.
+
+Sell now has an exact progressive engine contract as well. It avoids factorial
+multi-sale enumeration by exposing one decision layer at a time: each accepted
+prefix is a reducer-ready action the player may submit immediately, while its
+next choices append one legal product/Merchant/beer combination. It preserves
+both material sale orders, deduplicates only byte-equivalent adapter outcomes,
+and projects Merchant rewards and pending Gloucester free Develop.
+
+Rail Network now has the same bounded exact contract. Its first layer exposes
+every reducer-ready one-link and coal-source plan. Passing one emitted plan back
+keeps it available for immediate submission while exposing only legal ordered
+second-link, second-coal, and own-beer extensions. The authoritative adapter
+still decides reach, nearest-coal priority, first-link-anywhere, sequential
+market prices, affordability, token use, flips, and income awards.
+
+The private hot-seat Rail control now projects those exact plans. A selected
+one-link plan may submit directly or be promoted to an accepted prefix that
+reveals only exact ordered two-link extensions. The UI shows each link, mine or
+market coal source and sequential price, required own beer, flips, income,
+total cost, money, tokens, and resulting market before the shared controller
+submits the reducer-ready command. Canal remains a separate exact branch, and
+stale or malformed Rail drafts recover without becoming commands.
+
+Round settlement now has a bounded progressive liquidation contract. Missing
+negative-income seats remain unacknowledged, cash-covered seats explicitly
+choose `[]`, short seats append one owned positive-value industry at a time, and
+the selector stops immediately when the shortfall is covered or assets are
+exhausted. It previews cash and VP loss and returns a command map only after the
+authoritative settlement accepts every seat together; final Rail correctly
+skips income with `{}`.
+
+The hot-seat settlement screen now drives that exact contract without revealing
+any hand. Cash-covered seats explicitly confirm `[]`; a cash-short seat adds one
+ordered owned industry per click while the screen previews sale proceeds, cash,
+VP loss, and unpaid shortfall. Submission stays disabled until every required
+seat is authoritative-ready, stale or malformed revision-bound drafts fail
+closed, final Rail accepts the rules-required `{}`, and local autosave excludes
+the transient liquidation draft.
+
+The browser-verified prototype can build a real level-1 Cannock coal mine for
+£5 and show its two coal cubes; Develop a level-1 Manufacturer and Cotton Mill
+for £4 of market iron, reducing £17 to £13 and advancing both public next-tile
+stacks; Scout three regular cards for both Wilds; build an exact reachable Canal
+link for £3; continue after reload without command-ID collisions; take a Loan;
+pay negative income from cash; settle into round 2; and reset to four players.
+It also completes a fresh deterministic nine-command path from a Worcester
+Cotton Mill through a Gloucester Canal connection and Sell: the product flips,
+income advances five spaces, Merchant beer is consumed, the free Develop
+survives reload behind a hidden handoff, its exact Manufacturer choice advances
+the public stack, the parent Sell completes once, and round 3 restores at the
+correct private handoff. Coal and Iron Works Build receipts now spell out how
+many produced cubes sold, how many remain, and why income did or did not move.
+An ordinary browser path also took a Loan, built a Cotton Mill, Pottery,
+Stafford–Stone Canal, and Stone Brewery, then settled a £3 bill from £0 cash by
+liquidating the £2 Brewery followed by the £6 Cotton Mill. The UI held submission
+while £1 remained, applied the exact ordered assets once covered, left £5 cash,
+removed only those two industries, advanced the round, and restored the hidden
+revision-13 handoff after reload.
+That path is now a reproducible production-browser case built entirely through
+public commands. It asserts revision 12/round 3/£0 cash, the £3→£1 shortfall,
+disabled submission after the £2 Stone Brewery, ordered £8 proceeds after the
+£6 Worcester Cotton Mill, £5 final cash, zero VP loss/unpaid amount, removal of
+only those two assets, the surviving Stafford Pottery, one exact settlement
+command, draft-free autosave, and the hidden revision-13 Player 2 reload.
+The production browser gate also completes a fresh 100-command two-era journey:
+77 Pass actions, one exact Rail Network action, 20 round settlements, and two
+era resolutions. It verifies the Rail receipt, one built link, spend-driven
+turn order, final standings, revision-100 autosave/reload, and zero axe WCAG
+A/AA violations at hidden, revealed, restored, and terminal checkpoints.
+The same gate asserts exact active elements through handoff, keyboard Enter
+reveal, private play, accepted-command handoff, every round boundary, both era
+boundaries, and terminal reload. Local draft clicks retain their natural focus
+because the coordinator is keyed only by revision and active mode.
+Additional 3- and 4-player browser cases verify two-step reset context, exact
+public player counts, initial and restored privacy, Player 1 reveal, accepted
+Pass progression, Player 2 handoff/reload, and serious/critical axe scans.
+A focused Rail browser case restores revision 55 from a public-command-built
+save, promotes Derby–Nottingham, appends Belper–Derby with sequential £1/£2
+market coal and own Derby beer, and submits revision 56. It verifies £32→£14,
+14→12 link tokens, market coal 13→11, built links 0→2, Brewery beer 2→1, the
+Player 2 handoff, removal of transient Rail drafts from the save, and identical
+privacy-safe reload state.
+Keyboard boundary cases cover reset warning cancel and confirm, plus a
+revision-7 Merchant free-Develop save constructed solely through accepted
+commands. They verify hidden/revealed focus and privacy, resolve the real
+selection, focus revision-8 Round complete, settle it from the keyboard, reach
+the revision-9 Player 2 handoff, and restore it privately after reload.
+Reload restores the exact revision, market, and inventory while hiding the
+current hand before any private state is mounted. Browser console output was
+clean. The verified checkpoint has 49 test files / 634 tests plus the production
+build and 9 production-browser tests. Start it with:
+
+```bash
+pnpm dev
+```
+
+Then open <http://localhost:3000/dev>.
+
+## Post-milestone follow-ups
+
+These are useful extensions, not blockers for the verified local hot-seat goal:
+
+1. Add deeper full-round browser journeys for 3 and 4 players; complete engine
+   and replay journeys already cover both counts.
+2. Broaden axe scans across every progressive branch.
+3. Strengthen property/fuzz testing.
+4. Retire the legacy generic `attemptable` Network status and placeholder V1
+   industry-value data after confirming no compatibility consumer remains.
+
+## Goal and non-goals
+
+The verified-complete milestone is a deterministic, rules-complete Brass:
+Birmingham engine for 2-4 local players, covering both eras, final scoring,
+serialization/replay, and a hot-seat development UI.
+
+Online multiplayer, matchmaking, authentication, AI opponents, and deployment
+are intentionally outside this milestone.
+
+## Keeping this document useful
+
+Update this file when a checkpoint is pushed and keep the next three to five
+concrete checkpoints current. Do not mistake the Pass/Loan walking skeleton for
+the rules-complete hot-seat milestone.
+
+For a fresh handoff:
+
+```bash
+git switch agent/engine-alpha
+mise install
+pnpm install --frozen-lockfile
+pnpm check
+```

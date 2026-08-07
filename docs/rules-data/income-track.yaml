@@ -1,0 +1,96 @@
+schema_version: 1
+
+provenance:
+  confidence: high
+  detail: >-
+    The rulebook defines income movement, loans, the level -10 floor, the
+    level 30 ceiling, and end-of-round settlement. The board reference is the
+    authority for the 101 printed Progress Track spaces and their widening
+    income-level bands. RulesPal independently cross-checks the rule text and
+    explicitly identifies setup space 10 as income level 0.
+  sources:
+    - id: official-rulebook
+      role: primary-rules
+      url: https://cdn.shopify.com/s/files/1/0246/2190/8043/files/Brass-Birmingham-Rulebook.pdf?v=1741712309
+      claims:
+        - setup marker space
+        - advance spaces and level 30 ceiling
+        - loan movement and level -10 floor
+        - end-of-round income and shortfall resolution
+    - id: board-reference
+      role: primary-component-image
+      url: https://boardgamegeek.com/image/3733951/brass-birmingham
+      claims:
+        - printed Progress Track spaces 0 through 100
+        - printed income-level band boundaries
+    - id: rulespal-rulebook
+      role: independent-rules-transcription
+      url: https://www.rulespal.com/brass-birmingham/rulebook
+      claims:
+        - setup space 10 represents income level 0
+        - loan target is the highest space in the lower level
+        - final-round income exception and shortfall resolution
+
+track:
+  first_space: 0
+  last_space: 100
+  starting_space: 10
+  minimum_income_level: -10
+  maximum_income_level: 30
+  bands:
+    - { income_level: -10, first_space: 0, last_space: 0 }
+    - { income_level: -9, first_space: 1, last_space: 1 }
+    - { income_level: -8, first_space: 2, last_space: 2 }
+    - { income_level: -7, first_space: 3, last_space: 3 }
+    - { income_level: -6, first_space: 4, last_space: 4 }
+    - { income_level: -5, first_space: 5, last_space: 5 }
+    - { income_level: -4, first_space: 6, last_space: 6 }
+    - { income_level: -3, first_space: 7, last_space: 7 }
+    - { income_level: -2, first_space: 8, last_space: 8 }
+    - { income_level: -1, first_space: 9, last_space: 9 }
+    - { income_level: 0, first_space: 10, last_space: 10 }
+    - { income_level: 1, first_space: 11, last_space: 12 }
+    - { income_level: 2, first_space: 13, last_space: 14 }
+    - { income_level: 3, first_space: 15, last_space: 16 }
+    - { income_level: 4, first_space: 17, last_space: 18 }
+    - { income_level: 5, first_space: 19, last_space: 20 }
+    - { income_level: 6, first_space: 21, last_space: 22 }
+    - { income_level: 7, first_space: 23, last_space: 24 }
+    - { income_level: 8, first_space: 25, last_space: 26 }
+    - { income_level: 9, first_space: 27, last_space: 28 }
+    - { income_level: 10, first_space: 29, last_space: 30 }
+    - { income_level: 11, first_space: 31, last_space: 33 }
+    - { income_level: 12, first_space: 34, last_space: 36 }
+    - { income_level: 13, first_space: 37, last_space: 39 }
+    - { income_level: 14, first_space: 40, last_space: 42 }
+    - { income_level: 15, first_space: 43, last_space: 45 }
+    - { income_level: 16, first_space: 46, last_space: 48 }
+    - { income_level: 17, first_space: 49, last_space: 51 }
+    - { income_level: 18, first_space: 52, last_space: 54 }
+    - { income_level: 19, first_space: 55, last_space: 57 }
+    - { income_level: 20, first_space: 58, last_space: 60 }
+    - { income_level: 21, first_space: 61, last_space: 64 }
+    - { income_level: 22, first_space: 65, last_space: 68 }
+    - { income_level: 23, first_space: 69, last_space: 72 }
+    - { income_level: 24, first_space: 73, last_space: 76 }
+    - { income_level: 25, first_space: 77, last_space: 80 }
+    - { income_level: 26, first_space: 81, last_space: 84 }
+    - { income_level: 27, first_space: 85, last_space: 88 }
+    - { income_level: 28, first_space: 89, last_space: 92 }
+    - { income_level: 29, first_space: 93, last_space: 96 }
+    - { income_level: 30, first_space: 97, last_space: 100 }
+
+rules:
+  advance:
+    unit: spaces
+    ceiling_income_level: 30
+  loan:
+    money_received: 30
+    income_levels_back: 3
+    minimum_target_income_level: -10
+    target_space: highest-space-in-target-level
+  end_of_round:
+    skip_on_final_round_of_game: true
+    negative_income_tile_value: half-build-cost-rounded-down
+    tile_removal_stop: as-soon-as-shortfall-is-covered
+    remaining_shortfall_vp_loss_per_pound: 1

@@ -1,4 +1,3 @@
-/* eslint-disable */
 // AUTO-GENERATED FILE. DO NOT EDIT DIRECTLY.
 // Source: docs/rules-data/industry-values.yaml
 

@@ -1,0 +1,115 @@
+meta:
+  schema_version: 1
+  ruleset: "Brass: Birmingham (Roxley, 2018)"
+  provenance:
+    primary_rules: "https://roxley.com/products/brass-birmingham"
+    component_reference: "https://boardgamegeek.com/image/4231624/brass-birmingham"
+    source_note: "Card distribution transcribed from the physical player aid and cross-checked against the official round counts."
+    confidence: high
+
+wild_supply:
+  location: 4
+  industry: 4
+
+templates:
+  - id: location-belper
+    kind: location
+    location: belper
+    copies: { "2": 0, "3": 0, "4": 2 }
+  - id: location-derby
+    kind: location
+    location: derby
+    copies: { "2": 0, "3": 0, "4": 3 }
+  - id: location-leek
+    kind: location
+    location: leek
+    copies: { "2": 0, "3": 2, "4": 2 }
+  - id: location-stoke-on-trent
+    kind: location
+    location: stoke-on-trent
+    copies: { "2": 0, "3": 3, "4": 3 }
+  - id: location-stone
+    kind: location
+    location: stone
+    copies: { "2": 0, "3": 2, "4": 2 }
+  - id: location-uttoxeter
+    kind: location
+    location: uttoxeter
+    copies: { "2": 0, "3": 1, "4": 2 }
+  - id: location-stafford
+    kind: location
+    location: stafford
+    copies: { "2": 2, "3": 2, "4": 2 }
+  - id: location-burton-on-trent
+    kind: location
+    location: burton-on-trent
+    copies: { "2": 2, "3": 2, "4": 2 }
+  - id: location-cannock
+    kind: location
+    location: cannock
+    copies: { "2": 2, "3": 2, "4": 2 }
+  - id: location-tamworth
+    kind: location
+    location: tamworth
+    copies: { "2": 1, "3": 1, "4": 1 }
+  - id: location-walsall
+    kind: location
+    location: walsall
+    copies: { "2": 1, "3": 1, "4": 1 }
+  - id: location-coalbrookdale
+    kind: location
+    location: coalbrookdale
+    copies: { "2": 3, "3": 3, "4": 3 }
+  - id: location-dudley
+    kind: location
+    location: dudley
+    copies: { "2": 2, "3": 2, "4": 2 }
+  - id: location-kidderminster
+    kind: location
+    location: kidderminster
+    copies: { "2": 2, "3": 2, "4": 2 }
+  - id: location-wolverhampton
+    kind: location
+    location: wolverhampton
+    copies: { "2": 2, "3": 2, "4": 2 }
+  - id: location-worcester
+    kind: location
+    location: worcester
+    copies: { "2": 2, "3": 2, "4": 2 }
+  - id: location-birmingham
+    kind: location
+    location: birmingham
+    copies: { "2": 3, "3": 3, "4": 3 }
+  - id: location-coventry
+    kind: location
+    location: coventry
+    copies: { "2": 3, "3": 3, "4": 3 }
+  - id: location-nuneaton
+    kind: location
+    location: nuneaton
+    copies: { "2": 1, "3": 1, "4": 1 }
+  - id: location-redditch
+    kind: location
+    location: redditch
+    copies: { "2": 1, "3": 1, "4": 1 }
+
+  - id: industry-iron-works
+    kind: industry
+    industries: [iron]
+    copies: { "2": 4, "3": 4, "4": 4 }
+  - id: industry-coal-mine
+    kind: industry
+    industries: [coal]
+    copies: { "2": 2, "3": 2, "4": 3 }
+  - id: industry-manufactured-goods-cotton-mill
+    kind: industry
+    industries: [manufactured, cotton]
+    copies: { "2": 0, "3": 6, "4": 8 }
+  - id: industry-pottery
+    kind: industry
+    industries: [pottery]
+    copies: { "2": 2, "3": 2, "4": 3 }
+  - id: industry-brewery
+    kind: industry
+    industries: [brewery]
+    copies: { "2": 5, "3": 5, "4": 5 }

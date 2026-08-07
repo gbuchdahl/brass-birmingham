@@ -10,6 +10,7 @@ import {
 } from "../rules/config";
 import { buildDeck, dealToPlayers } from "../cards";
 import { TOPOLOGY } from "../board/topology";
+import { RULESET_META } from "../rules/generated/ruleset";
 
 function uid(): string {
   return Math.random().toString(36).slice(2);
@@ -53,6 +54,12 @@ export function createGame(
   };
 
   return {
+    schemaVersion: 1,
+    ruleset: {
+      id: RULESET_META.id,
+      version: RULESET_META.version,
+    },
+    revision: 0,
     id: `game-${resolvedSeed}`,
     seed: resolvedSeed,
     phase: "canal",

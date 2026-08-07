@@ -1,0 +1,565 @@
+schema_version: 2
+
+metadata:
+  ruleset: "Brass: Birmingham (Roxley, 2018)"
+  title: "Per-player industry tile manifest"
+  per_player_tile_count: 45
+  source_note: "Printed player-mat values transcribed from component photography, checked against the official rules and two independent digital implementations."
+
+sources:
+  official_rules:
+    url: "https://cdn.shopify.com/s/files/1/0246/2190/8043/files/Brass-Birmingham-Rulebook.pdf?v=1741712309"
+    role: "Authoritative rules for build costs, resource production, era restrictions, developing, selling, income, victory points, and link icons."
+  official_product:
+    url: "https://roxley.com/products/brass-birmingham"
+    role: "Publisher product page and source for official component photography."
+  official_setup_photo:
+    url: "https://cdn.shopify.com/s/files/1/0246/2190/8043/files/Brass-Birmingham-Rulebook.pdf?v=1741712309"
+    role: "Official rulebook setup photograph showing the complete populated player mat."
+  player_mat_photo:
+    url: "https://blog.cnobi.jp/v1/blog/user/a3ecbd383208b30a32297fdc12a6bcb1/1534769373"
+    role: "Straight-on component photograph used to transcribe printed face values and copy counts."
+  industry_strategy:
+    url: "https://eriktwice.com/en/2021/01/15/brass-birmingham-understanding-the-industries/"
+    role: "Independent prose cross-check for industry costs, rewards, copy counts, and strategic distinctions between levels."
+  manufacturer_review:
+    url: "https://www.rpg.net/reviews/view-printable.phtml?reviewNumber=18636"
+    role: "Independent prose cross-check for the first and final manufactured-goods faces."
+  npow_implementation:
+    url: "https://github.com/npow/brass-birmingham/blob/main/js/gameData.js"
+    role: "Independent machine-readable cross-check of face values and copy distribution."
+  quasrain_implementation:
+    url: "https://github.com/Quasrain-Coder/BrassBirmingham/blob/main/packages/engine/src/data/tiles.ts"
+    role: "Second independent machine-readable cross-check of face values and copy distribution."
+
+kind_order: [manufacturer, cotton, brewery, coal, pottery, iron]
+expected_kind_counts:
+  manufacturer: 11
+  cotton: 11
+  brewery: 7
+  coal: 7
+  pottery: 5
+  iron: 4
+
+faces:
+  - face_id: manufacturer-1
+    industry: manufacturer
+    level: 1
+    stack_order: 1
+    copies: 1
+    physical_ids: [manufacturer-1-a]
+    build: { money: 8, coal: 1, iron: 0, era: canal_only }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 5
+    victory_points: 3
+    link_icons: 2
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [manufacturer_review, industry_strategy, quasrain_implementation]
+      confidence: high
+
+  - face_id: manufacturer-2
+    industry: manufacturer
+    level: 2
+    stack_order: 2
+    copies: 2
+    physical_ids: [manufacturer-2-a, manufacturer-2-b]
+    build: { money: 10, coal: 0, iron: 1, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 0
+    victory_points: 5
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [industry_strategy, quasrain_implementation]
+      confidence: high
+
+  - face_id: manufacturer-3
+    industry: manufacturer
+    level: 3
+    stack_order: 3
+    copies: 1
+    physical_ids: [manufacturer-3-a]
+    build: { money: 12, coal: 2, iron: 0, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 0
+    income_steps: 4
+    victory_points: 4
+    link_icons: 0
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: manufacturer-4
+    industry: manufacturer
+    level: 4
+    stack_order: 4
+    copies: 1
+    physical_ids: [manufacturer-4-a]
+    build: { money: 14, coal: 0, iron: 1, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 6
+    victory_points: 3
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [industry_strategy, quasrain_implementation]
+      confidence: high
+
+  - face_id: manufacturer-5
+    industry: manufacturer
+    level: 5
+    stack_order: 5
+    copies: 2
+    physical_ids: [manufacturer-5-a, manufacturer-5-b]
+    build: { money: 16, coal: 1, iron: 0, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 2
+    income_steps: 2
+    victory_points: 8
+    link_icons: 2
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: manufacturer-6
+    industry: manufacturer
+    level: 6
+    stack_order: 6
+    copies: 1
+    physical_ids: [manufacturer-6-a]
+    build: { money: 20, coal: 0, iron: 0, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 6
+    victory_points: 7
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: manufacturer-7
+    industry: manufacturer
+    level: 7
+    stack_order: 7
+    copies: 1
+    physical_ids: [manufacturer-7-a]
+    build: { money: 16, coal: 1, iron: 1, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 0
+    income_steps: 4
+    victory_points: 9
+    link_icons: 0
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: manufacturer-8
+    industry: manufacturer
+    level: 8
+    stack_order: 8
+    copies: 2
+    physical_ids: [manufacturer-8-a, manufacturer-8-b]
+    build: { money: 20, coal: 0, iron: 2, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 1
+    victory_points: 11
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [manufacturer_review, npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: cotton-1
+    industry: cotton
+    level: 1
+    stack_order: 1
+    copies: 3
+    physical_ids: [cotton-1-a, cotton-1-b, cotton-1-c]
+    build: { money: 12, coal: 0, iron: 0, era: canal_only }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 5
+    victory_points: 5
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [industry_strategy, npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: cotton-2
+    industry: cotton
+    level: 2
+    stack_order: 2
+    copies: 2
+    physical_ids: [cotton-2-a, cotton-2-b]
+    build: { money: 14, coal: 1, iron: 0, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 4
+    victory_points: 5
+    link_icons: 2
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [industry_strategy, npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: cotton-3
+    industry: cotton
+    level: 3
+    stack_order: 3
+    copies: 3
+    physical_ids: [cotton-3-a, cotton-3-b, cotton-3-c]
+    build: { money: 16, coal: 1, iron: 1, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 3
+    victory_points: 9
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [industry_strategy, npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: cotton-4
+    industry: cotton
+    level: 4
+    stack_order: 4
+    copies: 3
+    physical_ids: [cotton-4-a, cotton-4-b, cotton-4-c]
+    build: { money: 18, coal: 1, iron: 1, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 2
+    victory_points: 12
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [player_mat_photo, official_setup_photo]
+      cross_checks: [industry_strategy, npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: brewery-1
+    industry: brewery
+    level: 1
+    stack_order: 1
+    copies: 2
+    physical_ids: [brewery-1-a, brewery-1-b]
+    build: { money: 5, coal: 0, iron: 1, era: canal_only }
+    production: { coal: 0, iron: 0, beer: { canal: 1, rail: 2 } }
+    beer_to_sell: 0
+    income_steps: 4
+    victory_points: 4
+    link_icons: 2
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: brewery-2
+    industry: brewery
+    level: 2
+    stack_order: 2
+    copies: 2
+    physical_ids: [brewery-2-a, brewery-2-b]
+    build: { money: 7, coal: 0, iron: 1, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 1, rail: 2 } }
+    beer_to_sell: 0
+    income_steps: 5
+    victory_points: 5
+    link_icons: 2
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: brewery-3
+    industry: brewery
+    level: 3
+    stack_order: 3
+    copies: 2
+    physical_ids: [brewery-3-a, brewery-3-b]
+    build: { money: 9, coal: 0, iron: 1, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 1, rail: 2 } }
+    beer_to_sell: 0
+    income_steps: 5
+    victory_points: 7
+    link_icons: 2
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: brewery-4
+    industry: brewery
+    level: 4
+    stack_order: 4
+    copies: 1
+    physical_ids: [brewery-4-a]
+    build: { money: 9, coal: 0, iron: 1, era: rail_only }
+    production: { coal: 0, iron: 0, beer: { canal: 1, rail: 2 } }
+    beer_to_sell: 0
+    income_steps: 5
+    victory_points: 10
+    link_icons: 2
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: coal-1
+    industry: coal
+    level: 1
+    stack_order: 1
+    copies: 1
+    physical_ids: [coal-1-a]
+    build: { money: 5, coal: 0, iron: 0, era: canal_only }
+    production: { coal: 2, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 0
+    income_steps: 4
+    victory_points: 1
+    link_icons: 2
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: coal-2
+    industry: coal
+    level: 2
+    stack_order: 2
+    copies: 2
+    physical_ids: [coal-2-a, coal-2-b]
+    build: { money: 7, coal: 0, iron: 0, era: either }
+    production: { coal: 3, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 0
+    income_steps: 7
+    victory_points: 2
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: coal-3
+    industry: coal
+    level: 3
+    stack_order: 3
+    copies: 2
+    physical_ids: [coal-3-a, coal-3-b]
+    build: { money: 8, coal: 0, iron: 1, era: either }
+    production: { coal: 4, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 0
+    income_steps: 6
+    victory_points: 3
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: coal-4
+    industry: coal
+    level: 4
+    stack_order: 4
+    copies: 2
+    physical_ids: [coal-4-a, coal-4-b]
+    build: { money: 10, coal: 0, iron: 1, era: either }
+    production: { coal: 5, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 0
+    income_steps: 5
+    victory_points: 4
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: pottery-1
+    industry: pottery
+    level: 1
+    stack_order: 1
+    copies: 1
+    physical_ids: [pottery-1-a]
+    build: { money: 17, coal: 0, iron: 1, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 5
+    victory_points: 10
+    link_icons: 1
+    developable: false
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [industry_strategy, npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: pottery-2
+    industry: pottery
+    level: 2
+    stack_order: 2
+    copies: 1
+    physical_ids: [pottery-2-a]
+    build: { money: 0, coal: 1, iron: 0, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 1
+    victory_points: 1
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [industry_strategy, npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: pottery-3
+    industry: pottery
+    level: 3
+    stack_order: 3
+    copies: 1
+    physical_ids: [pottery-3-a]
+    build: { money: 22, coal: 2, iron: 0, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 2
+    income_steps: 5
+    victory_points: 11
+    link_icons: 1
+    developable: false
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [industry_strategy, npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: pottery-4
+    industry: pottery
+    level: 4
+    stack_order: 4
+    copies: 1
+    physical_ids: [pottery-4-a]
+    build: { money: 0, coal: 1, iron: 0, era: either }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 1
+    income_steps: 1
+    victory_points: 1
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [industry_strategy, npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: pottery-5
+    industry: pottery
+    level: 5
+    stack_order: 5
+    copies: 1
+    physical_ids: [pottery-5-a]
+    build: { money: 24, coal: 2, iron: 0, era: rail_only }
+    production: { coal: 0, iron: 0, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 2
+    income_steps: 5
+    victory_points: 20
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [industry_strategy, npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: iron-1
+    industry: iron
+    level: 1
+    stack_order: 1
+    copies: 1
+    physical_ids: [iron-1-a]
+    build: { money: 5, coal: 1, iron: 0, era: canal_only }
+    production: { coal: 0, iron: 4, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 0
+    income_steps: 3
+    victory_points: 3
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: iron-2
+    industry: iron
+    level: 2
+    stack_order: 2
+    copies: 1
+    physical_ids: [iron-2-a]
+    build: { money: 7, coal: 1, iron: 0, era: either }
+    production: { coal: 0, iron: 4, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 0
+    income_steps: 3
+    victory_points: 5
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: iron-3
+    industry: iron
+    level: 3
+    stack_order: 3
+    copies: 1
+    physical_ids: [iron-3-a]
+    build: { money: 9, coal: 1, iron: 0, era: either }
+    production: { coal: 0, iron: 5, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 0
+    income_steps: 2
+    victory_points: 7
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
+
+  - face_id: iron-4
+    industry: iron
+    level: 4
+    stack_order: 4
+    copies: 1
+    physical_ids: [iron-4-a]
+    build: { money: 12, coal: 1, iron: 0, era: either }
+    production: { coal: 0, iron: 6, beer: { canal: 0, rail: 0 } }
+    beer_to_sell: 0
+    income_steps: 1
+    victory_points: 9
+    link_icons: 1
+    developable: true
+    provenance:
+      value_sources: [official_rules, player_mat_photo, official_setup_photo]
+      cross_checks: [npow_implementation, quasrain_implementation]
+      confidence: high
